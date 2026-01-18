@@ -1,0 +1,196 @@
+import random
+import argparse
+import asyncio
+import json
+import os
+import sys
+from pathlib import Path
+from typing import List, Dict, Any
+
+# Ensure project root is in path (Standard Pattern)
+# We assume the script is run from project root or 'super-services' is importable.
+# Using relative path injection if needed, similar to generate_powers.py refactor expectations 
+# but per instructions we should rely on installed package or PYTHONPATH. 
+# For safety in this environment:
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../..")))
+
+from super.core.utils import get_app_conf
+from super.apps.generate_powers.models import MutatedGene
+from langchain_openai import ChatOpenAI
+
+# --- Configuration & Setup ---
+
+async def generate_single_gene(
+    model: ChatOpenAI,
+    system_prompt_template: str,
+    seed_name: str,
+    seed_desc: str,
+    gene_id: str,
+    pool_seeds: List[Dict],
+    pool_side_effects: List[Dict],
+    semaphore: asyncio.Semaphore,
+    output_dir: Path,
+    connectivity_instruction: str = "Generate 2-100 links (Default)."
+):
+    """Generates a single gene and saves it."""
+    async with semaphore:
+        # Prepare Context
+        # Sample mixing candidates (0-10) - Let's give a generous pool
+        mix_sample = random.sample(pool_seeds, min(10, len(pool_seeds)))
+        mix_str = ", ".join([s.get("name") for s in mix_sample])
+
+        # Sample side effects (1-10) - Let's give a generous pool
+        eff_sample = random.sample(pool_side_effects, min(10, len(pool_side_effects)))
+        eff_str = ", ".join([e.get("name") for e in eff_sample])
+        
+        # ID Prefix for hallucination guidance
+        id_prefix = gene_id.split("-")[0]
+
+        # Format Prompt
+        try:
+            prompt_content = system_prompt_template.format(
+                gene_id=gene_id,
+                seed_name=seed_name,
+                seed_description=seed_desc,
+                side_effects_list=eff_str,
+                mixing_candidates_list=mix_str,
+                id_prefix=id_prefix,
+                connectivity_instruction=connectivity_instruction
+            )
+        except KeyError as e:
+            print(f"Error formating prompt: Missing {e}")
+            return
+
+        # Call LLM
+        try:
+            # We use with_structured_output to enforce schema
+            structured_llm = model.with_structured_output(MutatedGene)
+            messages = [
+                ("system", prompt_content),
+                ("human", "Generate the gene record.")
+            ]
+            
+            result: MutatedGene = await structured_llm.ainvoke(messages)
+            
+            # Save
+            output_file = output_dir / f"{gene_id}.json"
+            
+            # Robustness: Handle ID collision if LLM returned a different ID or file exists
+            # We enforce the ID passed in the prompt, but if result.gene_id differs, trust result but ensure filename matches 'gene_id'
+            final_id = result.gene_id
+            
+            # Sanitize filename
+            safe_filename = "".join(x for x in final_id if x.isalnum() or x in ('-', '_')).strip()
+            output_file = output_dir / f"{safe_filename}.json"
+            
+            # Simple collision avoidance
+            counter = 1
+            while output_file.exists():
+                output_file = output_dir / f"{safe_filename}_{counter}.json"
+                counter += 1
+                
+            with open(output_file, "w") as f:
+                f.write(result.model_dump_json(indent=2))
+                
+            print(f"  [Generated] {final_id} -> {output_file.name}")
+            
+        except Exception as e:
+            print(f"  [Error] Failed to generate {gene_id}: {e}")
+
+
+async def main():
+    # Load Config
+    conf = get_app_conf("generate_powers")
+    
+    # Library
+    library_seeds = conf.get_list("generate_powers.library.seeds")
+    library_side_effects = conf.get_list("generate_powers.library.side_effects")
+    
+    # Settings
+    genome_conf = conf.get_config("generate_genome.settings")
+    concurrency = genome_conf.get_int("concurrency", 5)
+    
+    system_prompt = conf.get_string("generate_genome.system_prompt")
+    
+    stage_root = conf.get_string("stage_root")
+    base_genome_dir = Path(stage_root) / "generated_genome"
+    base_genome_dir.mkdir(parents=True, exist_ok=True)
+
+    # Init Model
+    api_key = os.getenv("OMGENE_OPEN_AI_API_KEY")
+    if not api_key:
+        print("Error: OMGENE_OPEN_AI_API_KEY not set.")
+        sys.exit(1)
+    
+    # Using slightly lower temp for structural consistency, 
+    # but prompt should encourage creativity. 0.7-0.8 is good.
+    model = ChatOpenAI(api_key=api_key, model="gpt-4o", temperature=0.8)
+    
+    semaphore = asyncio.Semaphore(concurrency)
+    
+    # 1. Select Random Seeds
+    selection_count = conf.get_int("generate_powers.vars.selection_count", 5)
+    active_seeds = random.sample(library_seeds, min(selection_count, len(library_seeds)))
+    
+    print(f"Starting Genome Generation for {len(active_seeds)} Seeds...")
+    
+    tasks = []
+    
+    for seed in active_seeds:
+        seed_name = seed.get("name")
+        seed_desc = seed.get("description")
+        
+        # 2. Determine Batch Size (Skewed/Abnormal Distribution)
+        # Weights: 70% small (1-5), 20% medium (6-20), 10% massive (21-50)
+        dist_choice = random.choices(["small", "medium", "massive"], weights=[0.7, 0.2, 0.1], k=1)[0]
+        
+        if dist_choice == "small":
+            num_genes = random.randint(1, 5)
+        elif dist_choice == "medium":
+            num_genes = random.randint(6, 20)
+        else:
+            num_genes = random.randint(21, 50)
+            
+        print(f"Seed '{seed_name}': Generating batch of {num_genes} genes ({dist_choice}).")
+        
+        # Prepare Directory
+        seed_dir = base_genome_dir / seed_name.lower().replace(" ", "_")
+        seed_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 3. Create Tasks
+        # Base ID part e.g. "FLIGHT"
+        safe_seed_tag = "".join(x for x in seed_name if x.isalnum()).upper()[:6]
+        
+        
+        for i in range(num_genes):
+            # Generate ID: FLIGHT-829 (Random suffix to be ontology-like)
+            suffix = random.randint(100, 999)
+            gene_id = f"{safe_seed_tag}-{suffix}"
+            
+            # --- Connectivity Skew (Hub vs Leaf) ---
+            # 85% Leaf (8-15 links), 15% Hub (30-50 links)
+            is_hub = random.random() < 0.15
+            if is_hub:
+                min_links, max_links = 30, 50
+                conn_type = "HUB"
+            else:
+                min_links, max_links = 15, 22
+                conn_type = "LEAF"
+                
+            conn_instruction = f"Generate {min_links}-{max_links} links (Distribution: {conn_type})."
+            
+            tasks.append(
+                generate_single_gene(
+                    model, system_prompt, seed_name, seed_desc, gene_id,
+                    library_seeds, library_side_effects, semaphore, seed_dir,
+                    connectivity_instruction=conn_instruction
+                )
+            )
+            
+    # 4. Run All
+    print(f"Queueing {len(tasks)} generation tasks...")
+    await asyncio.gather(*tasks)
+    print("Genome Generation Complete.")
+
+if __name__ == "__main__":
+    asyncio.run(main())

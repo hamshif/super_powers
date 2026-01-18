@@ -25,17 +25,28 @@ def _parse_hocon(path: Path) -> ConfigTree:
 def _resolve_conf_root() -> Path:
     """Resolve the configuration root directory.
     
-    Defaults to looking for 'conf' in the current working directory.
-    Callers should prefer passing an explicit 'conf_root' argument.
+    Tries to locate 'conf' relative to this module (src/super/core/utils.py -> ... -> conf).
+    Falls back to current working directory.
     """
+    # Try finding conf relative to this library file
+    # utils.py is in src/super/core/
+    # We want super-services/conf/
+    # parents[0] = core, [1] = super, [2] = src, [3] = super-services
+    try:
+        lib_root = Path(__file__).resolve().parents[3]
+        conf_root = lib_root / "conf"
+        if conf_root.exists():
+            return conf_root
+    except IndexError:
+        pass
+
+    # Fallback to CWD
     cwd = Path.cwd()
-    
-    # Require an explicit conf directory; no silent fallback.
     conf_root = cwd / "conf"
     if conf_root.exists():
         return conf_root
 
-    raise FileNotFoundError(f"Configuration root not found at {conf_root}")
+    raise FileNotFoundError(f"Configuration root not found relative to module ({Path(__file__).parents[3] / 'conf'}) or CWD ({cwd / 'conf'})")
 
 
 def get_project_conf(
