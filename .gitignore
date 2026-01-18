@@ -55,3 +55,9 @@ conf/developer/
 *.mp4
 # ignore files that have the regex stam.
 *stam.*
+
+
+# ignore files named secret or secrets with any extension
+secret.*
+secrets.*
+.env
