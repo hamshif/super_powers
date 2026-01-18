@@ -19,83 +19,68 @@ from super.config import get_app_conf
 
 from super.config import get_app_conf
 
-from pyhocon import ConfigFactory, HOCONConverter
+from pyhocon import ConfigFactory
 
-def convert_to_hocon_str(result: ExpansionResult) -> str:
-    """Converts the ExpansionResult to a HOCON string using the pyhocon library."""
-    
-    # reshaping to target structure
-    gradient_dict = {
-        variant.name: {"description": variant.description}
-        for variant in result.gradient
-    }
-    
-    structure = {
-        "abilities": {
-            result.seed_name: {
-                "description": result.seed_description,
-                "gradient": gradient_dict
-            }
-        }
-    }
-    
-    conf = ConfigFactory.from_dict(structure)
-    return HOCONConverter.to_hocon(conf)
 
 async def main():
-    # Load configuration
-    try:
-        conf = get_app_conf("generate_powers")
-        # Strict loading: No defaults provided, will raise error if missing
-        seed = conf.get_string("generate_powers.seed")
-        n = conf.get_int("generate_powers.n")
-        
-    except Exception as e:
-        print(f"Configuration Error: Missing required config keys in app.conf: {e}", file=sys.stderr)
-        sys.exit(1)
+    # Load configuration - Let it fail if missing per AGENTS.md
+    conf = get_app_conf("generate_powers")
     
+    seeds = conf.get_list("generate_powers.seeds")
+    n = conf.get_int("generate_powers.n")
+    temperature = conf.get_float("generate_powers.temperature", 0.7)
+    system_prompt = conf.get_string("generate_powers.system_prompt")
+
     api_key = os.getenv("OMGENE_OPEN_AI_API_KEY")
     if not api_key:
         print("Error: OMGENE_OPEN_AI_API_KEY environment variable is not set.", file=sys.stderr)
         sys.exit(1)
         
-    print(f"Generating {n} variants for seed '{seed}'...")
+    model = ChatOpenAI(api_key=api_key, model="gpt-4o", temperature=temperature)
+    graph = ExpansionGraphFactory.create_graph(model, system_prompt)
     
-    model = ChatOpenAI(api_key=api_key, model="gpt-4o", temperature=0.3)
-    graph = ExpansionGraphFactory.create_graph(model)
-    
-    try:
-        inputs = {"seed": seed, "n": n, "messages": []}
-        result_state = await graph.ainvoke(inputs)
+    for seed in seeds:
+        print(f"Generating {n} variants for seed '{seed}' (Temp: {temperature})...")
         
-        # Extract the result from the state
-        if "result" in result_state:
-            result_obj: ExpansionResult = result_state["result"]
+        try:
+            inputs = {"seed": seed, "n": n, "messages": []}
+            result_state = await graph.ainvoke(inputs)
             
-            # FILE OUTPUT LOGIC
-            stage_root = conf.get_string("stage_root")
-            output_dir = Path(stage_root) / "generated_powers"
-            output_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Clean filename from seed (simple sanitization)
-            safe_seed = "".join(x for x in seed if x.isalnum() or x in (' ', '_', '-')).strip().replace(' ', '_').lower()
-            output_file = output_dir / f"{safe_seed}.json"
-            
-            # Generate JSON Output
-            formatted_output = result_obj.model_dump_json(indent=2)
-            
-            with open(output_file, "w") as f:
-                f.write(formatted_output)
+            # Extract the result from the state
+            if "result" in result_state:
+                result_obj: ExpansionResult = result_state["result"]
                 
-            print(f"Successfully generated powers for '{seed}'.")
-            print(f"Output written to: {output_file}")
+                # FILE OUTPUT LOGIC
+                stage_root = conf.get_string("stage_root")
+                
+                # Create parent output dir comprised of query_vars
+                # Sanitize seed for path
+                safe_seed = "".join(x for x in seed if x.isalnum() or x in (' ', '_', '-')).strip().replace(' ', '_').lower()
+                query_vars_dir = f"{safe_seed}_n{n}_t{temperature}"
+                
+                output_dir = Path(stage_root) / "generated_powers" / query_vars_dir
+                output_dir.mkdir(parents=True, exist_ok=True)
+                
+                output_file = output_dir / f"{safe_seed}.json"
+                
+                # Generate JSON Output
+                formatted_output = result_obj.model_dump_json(indent=2)
+                
+                with open(output_file, "w") as f:
+                    f.write(formatted_output)
+                    
+                print(f"Successfully generated powers for '{seed}'.")
+                print(f"Output written to: {output_file}")
 
-        else:
-            print("Error: Graph did not return a result.", file=sys.stderr)
-            
-    except Exception as e:
-        print(f"Error generating powers: {e}", file=sys.stderr)
-        sys.exit(1)
+            else:
+                print(f"Error: Graph did not return a result for seed '{seed}'.", file=sys.stderr)
+                
+        except Exception as e:
+            print(f"Error generating powers for '{seed}': {e}", file=sys.stderr)
+            # Continue to next seed instead of exiting?
+            # User might want to stop, but for batch processing usually continue is better.
+            # let's continue.
+            continue
 
 if __name__ == "__main__":
     asyncio.run(main())
