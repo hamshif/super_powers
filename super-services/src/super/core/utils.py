@@ -1,6 +1,7 @@
 """Configuration helpers for Super Services."""
 
 
+import os
 from pathlib import Path
 from typing import Any, Final
 from typing import cast
@@ -19,32 +20,7 @@ def _parse_hocon(path: Path) -> ConfigTree:
     return cast(TypedConfig, conf)
 
 
-def _developer_conf_path(conf_root: Path) -> Path:
-    return Path(conf_root / "developer" / "developer.conf").resolve()
 
-
-def _developer_secrets_path(conf_root: Path) -> Path:
-    return Path(conf_root / "developer" / "secrets.conf").resolve()
-
-
-def _maybe_load_developer_conf(conf_root: Path) -> ConfigTree | None:
-    dev_path = _developer_conf_path(conf_root)
-    if not dev_path.exists():
-        return None
-    developer_conf = _parse_hocon(dev_path)
-    return developer_conf
-
-
-def _maybe_load_developer_secrets(conf_root: Path) -> ConfigTree | None:
-    secrets_path = _developer_secrets_path(conf_root)
-    if not secrets_path.exists():
-        return None
-    secrets_conf = _parse_hocon(secrets_path)
-    return secrets_conf
-
-
-
-import os
 
 def _resolve_conf_root() -> Path:
     """Resolve the configuration root directory.
@@ -64,7 +40,6 @@ def _resolve_conf_root() -> Path:
 
 def get_project_conf(
     *,
-    include_developer: bool = True,
     resolve: bool = True,
     conf_root: Path | None = None,
 ) -> TypedConfig:
@@ -94,22 +69,26 @@ def get_project_conf(
         # Fallback to tmp if we can't create in home (though unlikely for user)
         pass
 
-    project_conf_path = Path(conf_root / "project.conf").resolve()
-    project_conf = _parse_hocon(project_conf_path)
+    runtime_defaults = ConfigFactory.from_dict(
+        {
+            "project_root": project_root.as_posix(),
+            "stage_root": stage_root.as_posix(),
+        }
+    )
 
-    secret_path = (conf_root / "secret.conf").resolve()
-    if secret_path.exists():
-        secret_conf = _parse_hocon(secret_path)
-        project_conf = project_conf.with_fallback(secret_conf)
+    project_conf = _parse_hocon(conf_root / "project.conf").with_fallback(runtime_defaults)
 
-    if include_developer:
-        developer_secrets = _maybe_load_developer_secrets(conf_root)
-        if developer_secrets is not None:
-            project_conf = developer_secrets.with_fallback(project_conf)
+    # Order of overlays: secrets -> developer secrets -> developer config
+    overlays = [
+        "secret.conf", # Project secrets
+        "developer/secrets.conf", # Developer overrides for secrets
+        "developer/developer.conf", # Developer local overrides
+    ]
 
-        developer_conf = _maybe_load_developer_conf(conf_root)
-        if developer_conf is not None:
-            project_conf = developer_conf.with_fallback(project_conf)
+    for overlay in overlays:
+        overlay_path = (conf_root / overlay).resolve()
+        if overlay_path.exists():
+            project_conf = _parse_hocon(overlay_path).with_fallback(project_conf)
 
     if resolve:
         project_conf = project_conf.resolve(project_conf)
@@ -131,7 +110,7 @@ def get_app_conf(
     """
 
     # Pass the context to project config loader
-    project_conf = get_project_conf(include_developer=False, resolve=False, conf_root=conf_root)
+    project_conf = get_project_conf(resolve=False, conf_root=conf_root)
 
     if app is None:
         # If no app specified, return strictly project config (no app layer).
@@ -153,15 +132,18 @@ def get_app_conf(
 
     merged = app_conf.with_fallback(project_conf)
 
-    tmp = f'{conf_root}/developer/developer.conf'
-    developer_conf_path =  Path(conf_root / "developer" / "developer.conf").resolve()
-    developer_secrets_path = Path(conf_root / "developer" / "secrets.conf").resolve()
-    if developer_secrets_path.exists():
-        developer_secrets = _parse_hocon(developer_secrets_path)
-        merged = developer_secrets.with_fallback(merged)
-    if developer_conf_path.exists():
-        developer_conf = _parse_hocon(developer_conf_path)
-        merged = developer_conf.with_fallback(merged)
+    # Developer overlays for apps as well
+    overlays = [
+        "developer/secrets.conf",
+        "developer/developer.conf",
+    ]
+
+    for overlay in overlays:
+        overlay_path = (conf_root / overlay).resolve()
+        if overlay_path.exists():
+            merged = _parse_hocon(overlay_path).with_fallback(merged)
+
+    return merged.resolve(merged)
 
     return merged.resolve(merged)
 __all__ = ["DEFAULT_APP", "get_app_conf", "get_project_conf"]

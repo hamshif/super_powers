@@ -49,7 +49,8 @@ async def main():
         # Strict loading: No defaults provided, will raise error if missing
         seed = conf.get_string("generate_powers.seed")
         n = conf.get_int("generate_powers.n")
-        output_format = conf.get_string("generate_powers.format", "hocon") # Default to hocon is safe here as logic switch
+        output_format = conf.get_string("generate_powers.format", "hocon")
+        
     except Exception as e:
         print(f"Configuration Error: Missing required config keys in app.conf: {e}", file=sys.stderr)
         sys.exit(1)
