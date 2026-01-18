@@ -61,3 +61,5 @@ conf/developer/
 secret.*
 secrets.*
 .env
+# Temporary helper scripts
+tmp/
