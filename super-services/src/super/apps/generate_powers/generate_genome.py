@@ -62,40 +62,62 @@ async def generate_single_gene(
             return
 
         # Call LLM
-        try:
-            # We use with_structured_output to enforce schema
-            structured_llm = model.with_structured_output(MutatedGene)
-            messages = [
-                ("system", prompt_content),
-                ("human", "Generate the gene record.")
-            ]
-            
-            result: MutatedGene = await structured_llm.ainvoke(messages)
-            
-            # Save
-            output_file = output_dir / f"{gene_id}.json"
-            
-            # Robustness: Handle ID collision if LLM returned a different ID or file exists
-            # We enforce the ID passed in the prompt, but if result.gene_id differs, trust result but ensure filename matches 'gene_id'
-            final_id = result.gene_id
-            
-            # Sanitize filename
-            safe_filename = "".join(x for x in final_id if x.isalnum() or x in ('-', '_')).strip()
-            output_file = output_dir / f"{safe_filename}.json"
-            
-            # Simple collision avoidance
-            counter = 1
-            while output_file.exists():
-                output_file = output_dir / f"{safe_filename}_{counter}.json"
-                counter += 1
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # We use with_structured_output to enforce schema
+                structured_llm = model.with_structured_output(MutatedGene)
+                messages = [
+                    ("system", prompt_content),
+                    ("human", "Generate the gene record.")
+                ]
                 
-            with open(output_file, "w") as f:
-                f.write(result.model_dump_json(indent=2))
+                result: MutatedGene = await structured_llm.ainvoke(messages)
                 
-            print(f"  [Generated] {final_id} -> {output_file.name}")
-            
-        except Exception as e:
-            print(f"  [Error] Failed to generate {gene_id}: {e}")
+                # --- VALIDATION LOGIC ---
+                valid_side_effects = {e.get("name") for e in pool_side_effects}
+                
+                # 1. Canonical Side Effects Check
+                invalid_effects = [se.side_effect for se in result.side_effect_profile if se.side_effect not in valid_side_effects]
+                if invalid_effects:
+                    print(f"  [Retry {attempt+1}/{max_retries}] Invalid side effects found: {invalid_effects}")
+                    # Validation failure - try again
+                    continue
+                    
+                # 2. Connectivity Floor Check
+                if len(result.regulated_genes) < 12:
+                    print(f"  [Retry {attempt+1}/{max_retries}] Connectivity too low: {len(result.regulated_genes)} links (Min: 12)")
+                    continue
+                
+                # --- SUCCESS ---
+                # Save
+                output_file = output_dir / f"{gene_id}.json"
+                
+                # Robustness: Handle ID collision if LLM returned a different ID or file exists
+                # We enforce the ID passed in the prompt, but if result.gene_id differs, trust result but ensure filename matches 'gene_id'
+                final_id = result.gene_id
+                
+                # Sanitize filename
+                safe_filename = "".join(x for x in final_id if x.isalnum() or x in ('-', '_')).strip()
+                output_file = output_dir / f"{safe_filename}.json"
+                
+                # Simple collision avoidance
+                counter = 1
+                while output_file.exists():
+                    output_file = output_dir / f"{safe_filename}_{counter}.json"
+                    counter += 1
+                    
+                with open(output_file, "w") as f:
+                    f.write(result.model_dump_json(indent=2))
+                    
+                print(f"  [Generated] {final_id} -> {output_file.name}")
+                return # Done
+                
+            except Exception as e:
+                print(f"  [Error] Failed to generate {gene_id} (Attempt {attempt+1}): {e}")
+                if attempt == max_retries - 1:
+                    print(f"  [Failure] Giving up on {gene_id} after {max_retries} attempts.")
+
 
 
 async def main():

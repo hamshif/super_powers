@@ -5,7 +5,7 @@ Pydantic models for the Generate Powers app.
 from __future__ import annotations
 
 from typing import Dict, List, Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class AbilityDescriptor(BaseModel):
@@ -55,6 +55,7 @@ class SideEffectEntry(BaseModel):
 class MutatedGene(BaseModel):
     """A mutated gene record for the Mytho-Toon Regulatory Genome."""
     gene_id: str = Field(..., description="Unique Gene ID (e.g. TOON-019). Derived from seed name.")
+    gene_role: str = Field(..., description="Role: 'anchor' (pure/stable), 'hub' (high-connectivity), 'bridge' (multi-seed mix), 'anomaly' (high-entropy/weird).")
     mutation_class: str = Field(..., description="Class: 'gain_of_function', 'loss_of_restraint', 'regulatory_instability', 'toon_causality_break', 'mythic_exception'")
     primary_seeds: List[PrimarySeed] = Field(..., min_items=1, max_items=3, description="1-3 primary seed influences.")
     secondary_seeds: List[PrimarySeed] = Field(default_factory=list, description="0-10 secondary seed influences (weight <= 0.3).")
@@ -63,3 +64,13 @@ class MutatedGene(BaseModel):
     failure_mode: str = Field(..., description="Description of how causality collapses/fails.")
     stability_index: str = Field(..., description="Index: 'stable', 'volatile', 'comedic', 'mythic_fatal'")
     confidence: float = Field(..., description="Confidence score (0.3 - 0.95).")
+
+    @field_validator('regulated_genes')
+    def deduplicate_genes(cls, v: List[RegulatedGeneLink]):
+        seen = set()
+        unique = []
+        for link in v:
+            if link.gene_id not in seen:
+                seen.add(link.gene_id)
+                unique.append(link)
+        return unique
