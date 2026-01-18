@@ -64,3 +64,6 @@ secrets.*
 # Temporary helper scripts
 tmp/
 *.log
+
+
+/data

@@ -1,5 +1,12 @@
 {
-  "python.defaultInterpreterPath": "${env:HOME}/.pyenv/versions/super/bin/python",
-  "python.venvPath": "${env:HOME}/.pyenv/versions",
-  "debug.defaultLaunchConfiguration": "Python: Super Power Sage (Debug)"
+  "files.watcherExclude": {
+    "**/data/**": true,
+    "**/target/**": true,
+    "**/__pycache__/**": true
+  },
+  "search.exclude": {
+    "**/data/**": true,
+    "**/target/**": true,
+    "**/__pycache__/**": true
+  }
 }
