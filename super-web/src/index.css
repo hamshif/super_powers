@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@300;400;700&display=swap');
+
+:root {
+  /* Tokyo Night Palette */
+  --bg-dark: #0f1115;
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-surface: rgba(20, 22, 30, 0.65);
+  --cyber-cyan: #00f3ff;
+  --cyber-glow: rgba(0, 243, 255, 0.4);
+  --text-primary: #e0e6ed;
+  --text-secondary: #94a3b8;
+
+  font-family: 'Inter', 'Noto Sans JP', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: var(--text-primary);
+  background-color: var(--bg-dark);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  
+  /* BACKGROUND IMAGE SETUP */
+  /* Ensure the file name matches exactly what is in your public folder */
+  background-image: url('/background.png'); 
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  
+  overflow: hidden; 
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cyber-cyan);
+}

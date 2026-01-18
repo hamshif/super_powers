@@ -1,0 +1,272 @@
+#root {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 950px;
+  height: 85vh;
+  
+  /* GLASSMORPHISM CARD */
+  background: var(--glass-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: 
+    0 20px 50px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+/* Header styled as a HUD */
+header {
+  padding: 15px 25px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  backdrop-filter: blur(5px);
+}
+
+.app-logo {
+  height: 32px;
+  width: auto;
+  filter: drop-shadow(0 0 8px var(--cyber-cyan)); /* Blue Glowing logo */
+}
+
+header h1 {
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 0.9rem;
+  margin: 0;
+  color: var(--text-primary);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+/* Chat Area */
+.messages-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.message.user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.message.assistant {
+  align-self: flex-start;
+}
+
+/* BUBBLES */
+.bubble {
+  padding: 14px 20px;
+  border-radius: 12px;
+  line-height: 1.6;
+  font-size: 0.95rem;
+  position: relative;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+/* === USER BUBBLE: Black with Glowing Blue Text === */
+.user .bubble {
+  background: rgba(0, 0, 0, 0.85); /* Deep Black */
+  color: var(--cyber-cyan);        /* Neon Blue Text */
+  border: 1px solid rgba(0, 243, 255, 0.3);
+  border-bottom-right-radius: 2px;
+  
+  /* The "Hallowing" Glow Effect */
+  box-shadow: 0 0 15px rgba(0, 243, 255, 0.15); 
+  text-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
+  font-family: 'JetBrains Mono', monospace; /* Tech font matches the aesthetic */
+}
+
+/* Assistant Bubble */
+.assistant .bubble {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  border-bottom-left-radius: 2px;
+}
+
+/* LOGS */
+.logs {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  margin-bottom: 8px;
+  padding: 10px;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  border-left: 2px solid var(--cyber-cyan);
+  border-radius: 4px;
+  color: var(--text-secondary);
+}
+
+.log-item {
+  padding: 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.log-item.thinking { color: var(--cyber-cyan); animation: pulse 1.5s infinite; }
+.log-item.done { color: #50fa7b; }
+.log-item.error { color: #ff5555; }
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+/* Input Area */
+.input-area {
+  padding: 20px 30px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--glass-border);
+  display: flex;
+  gap: 15px;
+}
+
+input {
+  flex: 1;
+  padding: 15px 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: white;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+/* Input Focus - Now Blue Glow */
+input:focus {
+  outline: none;
+  border-color: var(--cyber-cyan);
+  box-shadow: 0 0 15px var(--cyber-glow);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* Button - Now Blue Glow */
+button {
+  padding: 0 30px;
+  background: rgba(0, 243, 255, 0.05);
+  color: var(--cyber-cyan);
+  border: 1px solid var(--cyber-cyan);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+button:hover:not(:disabled) {
+  background: var(--cyber-cyan);
+  color: #000; /* Text turns black on hover for contrast */
+  box-shadow: 0 0 20px var(--cyber-glow);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: #555;
+  color: #555;
+}
+
+/* Markdown Styles */
+.bubble p { margin: 0 0 10px 0; }
+.bubble p:last-child { margin: 0; }
+.bubble strong { color: var(--cyber-cyan); font-weight: 600; }
+.bubble pre {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+  overflow-x: auto; /* Ensure code blocks scroll */
+}
+.bubble code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9em;
+  color: var(--cyber-cyan);
+}
+
+/* Fix for Images overflowing */
+.bubble img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  margin: 10px 0;
+}
+
+/* ... (keep your existing CSS) ... */
+
+/* === NEW: Digital Hanko (Japanese Seal) Logo === */
+.logo-seal {
+  width: 42px;
+  height: 42px;
+  border: 2px solid var(--cyber-cyan); /* The Blue Ring */
+  border-radius: 8px; /* Slight curve, like a modern app icon */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  /* Typography for the Kanji */
+  font-family: 'Noto Sans JP', sans-serif;
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--cyber-cyan);
+  
+  /* The "Hallowing" Glow */
+  box-shadow: 
+    0 0 10px var(--cyber-glow),
+    inset 0 0 8px var(--cyber-glow);
+  text-shadow: 0 0 5px var(--cyber-cyan);
+  
+  /* Animation on load */
+  animation: sealFadeIn 1s ease-out forwards;
+}
+
+@keyframes sealFadeIn {
+  0% { opacity: 0; transform: scale(1.5); }
+  100% { opacity: 1; transform: scale(1); }
+}
