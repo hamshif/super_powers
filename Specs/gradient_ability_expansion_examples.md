@@ -1,3 +1,40 @@
+# Task: Gradient Superpower Expansion
+
+## Objective
+
+Implement a CLI command that expands a single *seed superpower* into a structured set of **20 gradient-related abilities**. The expansion should preserve the core causal domain of the seed while varying trigger, scope, constraints, and cost.
+
+## Input
+
+* A seed ability name (e.g., `Flight`, `Telepathy`)
+* Optional parameters:
+
+  * `--n` (default: 20)
+  * `--gradient` (e.g., `mechanism->constraint`)
+
+## Output
+
+* A HOCON-formatted block containing:
+
+  * The seed ability with a concise, mechanism-focused description, lore_text
+  * A `gradient` section of related abilities
+
+## Rules
+
+* Each ability must describe *mechanism + constraint*
+* Variants should be meaningfully distinct (no synonyms)
+* Stay within the same causal domain as the seed
+
+## Example Seeds
+
+* `Flight` → float, levitation, gravitic negation, shared lift, inertial flight
+* `Telepathy` → surface thought reading, psionic link, memory imprint, monologue compulsion
+
+## Purpose
+
+This command is used to generate a scalable, non-redundant ability dataset suitable for grounding a knowledge graph and downstream LLM reasoning.
+
+
 # PSEUDO-AGENT SPEC (human + CLI hybrid)
 # command: expand-ability <seed_ability> --n=20 --gradient=mechanism->constraint
 # behavior:
