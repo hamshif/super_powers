@@ -25,7 +25,10 @@ dependencies = [
   "pytest>=8.3.3",
   "langgraph>=0.2.66",
   "langchain-openai>=0.3.1",
-  "langchain-core>=0.3.31"
+  "langchain-core>=0.3.31",
+  "pyspark>=3.5.0",
+  "pandas>=2.0.0",
+  "jupyter>=1.0.0"
 ]
 
 [project.optional-dependencies]
