@@ -6,12 +6,12 @@ import argparse
 import asyncio
 import os
 import sys
+from pathlib import Path
 
 from langchain_openai import ChatOpenAI
 from rich.console import Console
 
-# Adjust path to include src to allow imports
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../src"))
+
 
 from super.apps.generate_powers.agent import ExpansionGraphFactory
 from super.apps.generate_powers.models import ExpansionResult
@@ -74,10 +74,33 @@ async def main():
             result_obj: ExpansionResult = result_state["result"]
             
             if output_format.lower() == "json":
-                print(result_obj.model_dump_json(indent=2))
+                formatted_output = result_obj.model_dump_json(indent=2)
             else:
                 formatted_output = convert_to_hocon_str(result_obj)
-                print(formatted_output)
+            
+            # Print to stdout/file depending on logic?
+            # User wants file output. Let's do both or just file?
+            # The prompt implies "write the response to files", usually replacing print.
+            # But let's keep print for immediate feedback if desired? 
+            # Actually, standard unix tools usually output to stdout OR file.
+            # Let's write to file AND print a summary.
+            
+            # FILE OUTPUT LOGIC
+            stage_root = conf.get_string("stage_root")
+            output_dir = Path(stage_root) / "generated_powers"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Clean filename from seed (simple sanitization)
+            safe_seed = "".join(x for x in seed if x.isalnum() or x in (' ', '_', '-')).strip().replace(' ', '_').lower()
+            extension = "json" if output_format == "json" else "conf"
+            output_file = output_dir / f"{safe_seed}.{extension}"
+            
+            with open(output_file, "w") as f:
+                f.write(formatted_output)
+                
+            print(f"Successfully generated powers for '{seed}'.")
+            print(f"Output written to: {output_file}")
+
         else:
             print("Error: Graph did not return a result.", file=sys.stderr)
             
