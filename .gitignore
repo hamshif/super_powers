@@ -63,3 +63,4 @@ secrets.*
 .env
 # Temporary helper scripts
 tmp/
+*.log
