@@ -37,3 +37,9 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+  "ignore:.*:DeprecationWarning:pyhocon",
+  "ignore:.*:DeprecationWarning:pyparsing",
+]

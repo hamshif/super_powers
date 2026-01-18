@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from super.config import get_app_conf
@@ -13,12 +14,44 @@ class HealthResponse(BaseModel):
     status: str
 
 
+class ChatRequest(BaseModel):
+    prompt: str
+
+
+class SuperPowerSageAgent:
+    def respond(self, prompt: str) -> str:
+        return prompt
+
+
 app = FastAPI(title="Super Power Sage")
+_agent = SuperPowerSageAgent()
+
+
+def _format_sse(data: str, event: str | None = None) -> str:
+    lines: list[str] = []
+    if event:
+        lines.append(f"event: {event}")
+    for line in data.splitlines() or [""]:
+        lines.append(f"data: {line}")
+    return "\n".join(lines) + "\n\n"
+
+
+async def _chat_stream(prompt: str) -> str:
+    response = _agent.respond(prompt)
+    return _format_sse(response, event="message")
 
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok")
+
+
+@app.post("/super_powers_sage")
+async def super_powers_sage(request: ChatRequest) -> StreamingResponse:
+    async def event_generator():
+        yield await _chat_stream(request.prompt)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 def main() -> None:
