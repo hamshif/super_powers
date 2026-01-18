@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "super-services"
+version = "0.1.0"
+description = "Backend services for Super Powers"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+  {name = "Your Name", email = "your.email@example.com"}
+]
+dependencies = [
+  "fastapi>=0.115.2",
+  "uvicorn[standard]>=0.30.6",
+  "pydantic>=2.9.2",
+  "requests>=2.32.3",
+  "httpx>=0.27.2",
+  "python-dotenv>=1.0.1",
+  "rich>=13.9.1"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.3",
+  "pytest-cov>=4.1.0",
+  "black>=24.8.0",
+  "flake8>=7.1.1",
+  "mypy>=1.11.2",
+  "pre-commit>=3.8.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

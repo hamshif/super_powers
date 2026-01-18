@@ -1,0 +1,4 @@
+{
+  "python.defaultInterpreterPath": "${env:HOME}/.pyenv/versions/super/bin/python",
+  "python.venvPath": "${env:HOME}/.pyenv/versions"
+}

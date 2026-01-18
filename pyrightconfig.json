@@ -1,0 +1,13 @@
+{
+  "venvPath": "${env:HOME}/.pyenv/versions",
+  "venv": "super",
+  "executionEnvironments": [
+    {
+      "root": "./",
+      "extraPaths": [
+        "super-services/src",
+        "super-services"
+      ]
+    }
+  ]
+}
