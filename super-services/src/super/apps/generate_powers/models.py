@@ -13,10 +13,18 @@ class AbilityDescriptor(BaseModel):
     description: str = Field(..., description="A concise, mechanism-focused description of the ability.")
 
 
+class MixedSeed(BaseModel):
+    """Represents a contribution from another concept or seed."""
+    name: str = Field(..., description="The name of the mixed concept or seed.")
+    influence: float = Field(..., ge=0.0, le=1.0, description="The degree of influence this mixed concept has (0.0 to 1.0).")
+
+
 class GradientVariant(BaseModel):
     """A single gradient variant ability."""
     name: str = Field(..., description="Name of the variant ability")
     description: str = Field(..., description="Mechanism-focused description")
+    similarity: float = Field(..., ge=0.0, le=1.0, description="Degree of similarity to the initial seed concept (0.0 to 1.0).")
+    mixed_seeds: List[MixedSeed] = Field(..., description="List of other concepts or seeds that influenced this variant.")
 
 
 class ExpansionResult(BaseModel):

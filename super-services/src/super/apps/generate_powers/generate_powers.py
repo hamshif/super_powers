@@ -61,7 +61,7 @@ async def main():
         
     print(f"Generating {n} variants for seed '{seed}'...")
     
-    model = ChatOpenAI(api_key=api_key, model="gpt-4o")
+    model = ChatOpenAI(api_key=api_key, model="gpt-4o", temperature=0.3)
     graph = ExpansionGraphFactory.create_graph(model)
     
     try:
