@@ -30,10 +30,9 @@ body {
   min-height: 100vh;
   
   /* BACKGROUND IMAGE SETUP */
-  /* Ensure the file name matches exactly what is in your public folder */
-  background-image: url('/background.png'); 
-  background-size: cover;
-  background-position: center;
+  background-image: url('/buggs_dna.png'); 
+  background-size: 40vw auto;
+  background-position: top left;
   background-attachment: fixed;
   background-repeat: no-repeat;
   
