@@ -42,11 +42,12 @@ def _resolve_conf_root() -> Path:
     """
     cwd = Path.cwd()
     
-    # Simple fallback: Check CWD
-    if (cwd / "conf").exists():
-        return cwd / "conf"
-        
-    return cwd / "conf"
+    # Require an explicit conf directory; no silent fallback.
+    conf_root = cwd / "conf"
+    if conf_root.exists():
+        return conf_root
+
+    raise FileNotFoundError(f"Configuration root not found at {conf_root}")
 
 
 def get_project_conf(
@@ -81,15 +82,8 @@ def get_project_conf(
         # Fallback to tmp if we can't create in home (though unlikely for user)
         pass
 
-    runtime_defaults = ConfigFactory.from_dict(
-        {
-            "project_root": project_root.as_posix(),
-            "stage_root": stage_root.as_posix(),
-        }
-    )
-
     project_conf_path = Path(conf_root / "project.conf").resolve()
-    project_conf = _parse_hocon(project_conf_path).with_fallback(runtime_defaults)
+    project_conf = _parse_hocon(project_conf_path)
 
     secret_path = (conf_root / "secret.conf").resolve()
     if secret_path.exists():

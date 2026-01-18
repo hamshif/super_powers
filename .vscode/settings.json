@@ -1,4 +1,5 @@
 {
   "python.defaultInterpreterPath": "${env:HOME}/.pyenv/versions/super/bin/python",
-  "python.venvPath": "${env:HOME}/.pyenv/versions"
+  "python.venvPath": "${env:HOME}/.pyenv/versions",
+  "debug.defaultLaunchConfiguration": "Python: Super Power Sage (Debug)"
 }
