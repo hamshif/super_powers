@@ -49,7 +49,6 @@ async def main():
         # Strict loading: No defaults provided, will raise error if missing
         seed = conf.get_string("generate_powers.seed")
         n = conf.get_int("generate_powers.n")
-        output_format = conf.get_string("generate_powers.format", "hocon")
         
     except Exception as e:
         print(f"Configuration Error: Missing required config keys in app.conf: {e}", file=sys.stderr)
@@ -73,18 +72,6 @@ async def main():
         if "result" in result_state:
             result_obj: ExpansionResult = result_state["result"]
             
-            if output_format.lower() == "json":
-                formatted_output = result_obj.model_dump_json(indent=2)
-            else:
-                formatted_output = convert_to_hocon_str(result_obj)
-            
-            # Print to stdout/file depending on logic?
-            # User wants file output. Let's do both or just file?
-            # The prompt implies "write the response to files", usually replacing print.
-            # But let's keep print for immediate feedback if desired? 
-            # Actually, standard unix tools usually output to stdout OR file.
-            # Let's write to file AND print a summary.
-            
             # FILE OUTPUT LOGIC
             stage_root = conf.get_string("stage_root")
             output_dir = Path(stage_root) / "generated_powers"
@@ -92,8 +79,10 @@ async def main():
             
             # Clean filename from seed (simple sanitization)
             safe_seed = "".join(x for x in seed if x.isalnum() or x in (' ', '_', '-')).strip().replace(' ', '_').lower()
-            extension = "json" if output_format == "json" else "conf"
-            output_file = output_dir / f"{safe_seed}.{extension}"
+            output_file = output_dir / f"{safe_seed}.json"
+            
+            # Generate JSON Output
+            formatted_output = result_obj.model_dump_json(indent=2)
             
             with open(output_file, "w") as f:
                 f.write(formatted_output)
