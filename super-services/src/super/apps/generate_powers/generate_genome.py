@@ -17,6 +17,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 from super.core.utils import get_app_conf
 from super.apps.generate_powers.models import MutatedGene
 from langchain_openai import ChatOpenAI
+import logging
+
+logger = logging.getLogger(__name__)
 
 # --- Configuration & Setup ---
 
@@ -84,7 +87,7 @@ async def generate_single_gene(
                 connectivity_instruction=connectivity_instruction
             )
         except KeyError as e:
-            print(f"Error formating prompt: Missing {e}")
+            logger.error(f"Error formating prompt: Missing {e}")
             return
 
         # Call LLM
@@ -119,13 +122,13 @@ async def generate_single_gene(
                         invalid_effects.append(se.side_effect)
                         
                 if invalid_effects:
-                    print(f"  [Warning] Invalid side effects found: {invalid_effects}. Keeping them for creativity.")
+                    logger.warning(f"  [Warning] Invalid side effects found: {invalid_effects}. Keeping them for creativity.")
                     # Relaxed validation: Allow them to pass (or we could filter them out)
                     # continue 
                     
                 # 2. Connectivity Floor Check
                 if len(result.regulated_genes) < 12:
-                    print(f"  [Retry {attempt+1}/{max_retries}] Connectivity too low: {len(result.regulated_genes)} links (Min: 12)")
+                    logger.warning(f"  [Retry {attempt+1}/{max_retries}] Connectivity too low: {len(result.regulated_genes)} links (Min: 12)")
                     continue
                 
                 # --- SUCCESS ---
@@ -159,15 +162,17 @@ async def generate_single_gene(
                         data_dict.update(metadata)
                     f.write(json.dumps(data_dict, indent=2))
                     
-                print(f"  [Generated] {final_id} -> {output_file.name}")
+                    f.write(json.dumps(data_dict, indent=2))
+                    
+                logger.info(f"  [Generated] {final_id} -> {output_file.name}")
                 return # Done
                 
             except Exception as e:
-                print(f"  [Error] Failed to generate {gene_id} (Attempt {attempt+1}): {e}")
+                logger.error(f"  [Error] Failed to generate {gene_id} (Attempt {attempt+1}): {e}")
                 
         # If we exit the loop, we failed
         err_msg = f"Failed to generate gene {gene_id} after {max_retries} attempts."
-        print(f"  [Failure] {err_msg}")
+        logger.error(f"  [Failure] {err_msg}")
         raise RuntimeError(err_msg)
 
 

@@ -37,6 +37,7 @@ WORKDIR /app
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 ENV HOME=/root
+ENV PYTHONUNBUFFERED=1
 
 # 3. Optimization: Spark Layer
 WORKDIR /root/opt
