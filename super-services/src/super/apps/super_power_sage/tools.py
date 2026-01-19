@@ -80,15 +80,39 @@ def search_heroes(query: str) -> List[Dict[str, Any]]:
     if df.empty:
         return []
     
-    # Case-insensitive search on hero_name and bio
+    
+    # Simple contain check first (fast)
     mask = (
         df['hero_name'].str.contains(query, case=False, na=False) | 
         df['bio'].str.contains(query, case=False, na=False)
     )
     result = df[mask]
     
-    # Return top 10 to avoid token overload
-    return result.head(10).to_dict(orient='records')
+    # If standard search returns results, return them
+    if not result.empty:
+         return result.head(10).to_dict(orient='records')
+         
+    # Fallback to Fuzzy Search
+    try:
+        from thefuzz import process, fuzz
+        
+        # We search against hero names
+        # process.extract returns list of (match, score) when input is a list
+        names = df['hero_name'].tolist()
+        fuzzy_matches = process.extract(query, names, limit=10, scorer=fuzz.partial_ratio)
+        
+        # Filter by score threshold (e.g., > 70)
+        # fuzzy_matches is list of (name, score)
+        matched_names = [name for name, score in fuzzy_matches if score > 70]
+        
+        if matched_names:
+             # Filter dataframe by these names
+             return df[df['hero_name'].isin(matched_names)].to_dict(orient='records')
+             
+    except ImportError:
+        pass
+        
+    return []
 
 @tool
 def get_connected_entities(entity_name: str, depth: int = 1) -> Dict[str, Any]:

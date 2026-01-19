@@ -1,0 +1,123 @@
+import os
+import pytest
+from unittest.mock import MagicMock, AsyncMock, patch
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langgraph.graph import StateGraph
+
+from super.apps.super_power_sage.agent import SageGraphFactory, AgentState
+from super.apps.super_power_sage.tools import get_hero_details, search_heroes
+
+# Mock the entire GraphManager to avoid needing real warehouse data in CI/CD
+# However, if this is an INTEGRATION test, we might want real data?
+# The user asked for "integration tests for tool usage".
+# Usually suggests real components. But I'll make it runnable without spark dependency if possible.
+# Actually my tools use 'pd.read_parquet' directly, so as long as warehouse exists on disk it works.
+# I will check existence of warehouse before running real tests, else skip.
+
+WAREHOUSE_EXISTS = os.path.exists(os.path.abspath(os.path.join(os.getcwd(), "../data/warehouse"))) or \
+                   os.path.exists(os.path.abspath(os.path.join(os.getcwd(), "data/warehouse")))
+
+@pytest.mark.skipif(not WAREHOUSE_EXISTS, reason="Warehouse data not found")
+def test_tool_execution_real_data():
+    """
+    Directly test the tools against the real warehouse data.
+    This ensures the 'tools.py' logic is correct (path resolution, pandas reading).
+    """
+    # 1. Test get_hero_details
+    # "Batman" is in our known seed data from previous verification
+    batman = get_hero_details.invoke({"hero_name": "Batman"})
+    assert isinstance(batman, dict)
+    assert batman.get("hero_name") == "Batman"
+    assert "bio" in batman
+    
+    # 2. Test search_heroes
+    results = search_heroes.invoke({"query": "Batman"})
+    assert isinstance(results, list)
+    assert len(results) > 0
+    assert any(h["hero_name"] == "Batman" for h in results)
+    
+    # 3. Test unknown hero
+    unknown = get_hero_details.invoke({"hero_name": "Captain Nobody"})
+    assert "error" in unknown
+
+    # 4. Test Fuzzy Search
+    # "Buggs" -> "Bugs Bunny"
+    fuzzy = search_heroes.invoke({"query": "Buggs Bunny"})
+    assert isinstance(fuzzy, list)
+    assert len(fuzzy) > 0
+    # Must find Bugs Bunny
+    found_names = [h["hero_name"] for h in fuzzy]
+    assert "Bugs Bunny" in found_names
+
+import unittest
+
+class TestChatAgent(unittest.IsolatedAsyncioTestCase):
+    async def test_agent_tool_calling_flow(self):
+        """
+        Tests that the LangGraph agent correctly generates a tool call when prompted.
+        We MOCK the LLM to force it to call a tool, so we test the GRAPH flow, not the Model intelligence.
+        """
+        
+        # 1. Mock the specific tool call we want the "model" to generate
+        expected_tool_call = {
+            "name": "get_hero_details",
+            "args": {"hero_name": "Batman"},
+            "id": "call_test_123",
+            "type": "tool_call"
+        }
+        
+        # Create a mock model response that includes this tool call
+        mock_response = AIMessage(
+            content="",
+            tool_calls=[expected_tool_call]
+        )
+        
+        # Mock the LLM
+        # We use MagicMock for the base because 'bind_tools' and 'with_structured_output' are synchronous methods
+        # that return Runnables. The Runnables themselves need 'ainvoke' to be async.
+        mock_llm = MagicMock()
+
+        # 1. Setup 'api.with_structured_output(...)'
+        mock_extractor = AsyncMock()
+        mock_extractor.ainvoke.return_value = type('obj', (object,), {
+                "new_intents": [], 
+                "satisfied_intent_ids": []
+        })()
+        mock_llm.with_structured_output.return_value = mock_extractor
+        
+        # 2. Setup 'model.bind_tools(...)'
+        mock_bound_llm = AsyncMock()
+        mock_bound_llm.ainvoke.return_value = mock_response
+        mock_llm.bind_tools.return_value = mock_bound_llm
+        
+        # Also need mock_llm to have ainvoke just in case (though agent uses bound one)
+        mock_llm.ainvoke = AsyncMock(return_value=mock_response)
+
+        # 2. Create the Graph
+        graph = SageGraphFactory.create_graph(mock_llm, checkpointer=None)
+        
+        # 3. Running the graph
+        # We want to see if it routes to 'tools' node.
+        inputs = {"messages": [HumanMessage(content="Check Batman details")]}
+        
+        # Collect all outputs
+        outputs = []
+        async for event in graph.astream(inputs, stream_mode="updates"):
+            for node, output in event.items():
+                outputs.append((node, output))
+                
+        # 4. Verify Flow
+        # Sequence should be: manage_context -> model -> tools -> model (End)
+        
+        # Check 'model' node outputting the tool call
+        model_nodes = [out for node, out in outputs if node == "model"]
+        self.assertGreaterEqual(len(model_nodes), 1)
+        first_model_output = model_nodes[0]
+        self.assertEqual(first_model_output["messages"][0].tool_calls[0]["name"], "get_hero_details")
+        
+        # Check 'tools' node executing the tool
+        tool_nodes = [out for node, out in outputs if node == "tools"]
+        self.assertEqual(len(tool_nodes), 1)
+        tool_output_msg = tool_nodes[0]["messages"][0]
+        self.assertIsInstance(tool_output_msg, ToolMessage)
+        self.assertEqual(tool_output_msg.tool_call_id, "call_test_123")
