@@ -24,7 +24,16 @@ This repository is organized into three main components:
 
 ---
 
-## Quick Setup
+## 🚀 Quick Start (Docker / Reviewers)
+For a **one-click** setup (Data Packing + Build + Run + Browser Launch):
+
+```bash
+./start_demo.sh
+```
+*Requirements: Docker, Python 3 installed.*
+
+---
+## 📦 Quick Setup (Local Dev)
 
 ### Python (Backend & Analysis)
 Run this once to set up the Python environment (using `pyenv-virtualenv`):
