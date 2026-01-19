@@ -56,4 +56,4 @@ RUN chmod +x /app/run.sh
 EXPOSE 8000
 
 # Start the server
-CMD ["/app/run.sh"]
+CMD ["/bin/bash", "/app/run.sh"]

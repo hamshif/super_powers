@@ -29,24 +29,35 @@ echo "The app will accept connections at http://localhost:8000"
 url="http://localhost:8000"
 echo "Opening $url in your default browser..."
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
+# Implement cross-platform browser opening
+url="http://localhost:8000"
+echo "Opening $url in your default browser..."
+
+case "$OSTYPE" in
+  darwin*)
     # macOS
     open "$url"
-elif [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
+    ;;
+  cygwin*|msys*|win32*)
     # Windows (Git Bash, etc.)
     start "$url"
-elif grep -q Microsoft /proc/version 2>/dev/null; then
-    # WSL (Windows Subsystem for Linux)
-    if command -v wslview >/dev/null; then
-        wslview "$url" 
+    ;;
+  *)
+    # Linux / WSL / Other
+    if grep -q Microsoft /proc/version 2>/dev/null; then
+        # WSL
+        if command -v wslview >/dev/null; then
+            wslview "$url"
+        else
+            explorer.exe "$url"
+        fi
+    elif command -v xdg-open > /dev/null; then
+        # Linux
+        xdg-open "$url" >/dev/null 2>&1 &
     else
-        explorer.exe "$url" 
+        echo "Could not detect default browser. Please open $url manually."
     fi
-elif command -v xdg-open > /dev/null; then
-    # Linux (Standard)
-    xdg-open "$url" >/dev/null 2>&1 &
-else
-    echo "Could not detect default browser. Please open $url manually."
-fi
+    ;;
+esac
 
 bash tools/run_docker.sh
