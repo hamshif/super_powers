@@ -10,11 +10,13 @@ The core Python backend for the Super Powers project. It handles data generation
 *   **Robustness**: Includes a retry loop to ensure all generated genes meet connectivity filters (>=12 connections) and use canonical side effects.
 
 ### 2. ETL Pipeline (`src/super/apps/etl`)
-*   **`flatten.py`**: A PySpark job that transforms the complex, nested JSON output from the generation step into a flat, star-schema Parquet warehouse.
+*   **`flatten_heroes.py`**: A PySpark job that transforms the complex, nested JSON output from the generation step into a flat, star-schema Parquet warehouse.
+*   **`ad_hoc.py`**: A lightweight Pandas-based ETL calling `etl_single_hero` for low-latency updates during interactive creation.
 *   **Features**:
     *   Flattens `secondary_seeds` and `mixed_seeds` into link tables.
     *   Cleans side effect names (Typo fixing, Deduplication).
     *   Generates deterministic IDs for powers.
+    *   **Dual-Path ETL**: Batch (Spark) for full rebuilds, Ad-Hoc (Pandas) for instant updates.
 
 ### 3. Core Runtime (`src/super/core`)
 *   **`runtime.py`**: Bootstraps the Spark environment (Java/Spark Home).
@@ -33,5 +35,16 @@ python src/super/apps/generate_powers/generate_genome.py
 
 To run the ETL pipeline:
 ```bash
-python src/super/apps/etl/flatten.py
+python src/super/apps/etl/flatten_heroes.py
+```
+
+## Testing
+We use `pytest` with markers for Unit vs Integration testing.
+
+```bash
+# Run Unit Tests (Fast, Mocked)
+pytest -m unit -v
+
+# Run Integration Tests (Real Warehouse/ETL flow)
+pytest -m integration -v
 ```
