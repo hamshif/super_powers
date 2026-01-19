@@ -107,12 +107,19 @@ app.add_middleware(
 
 
 @app.get("/")
-async def get_chat_interface():
+async def serve_spa_root():
     from pathlib import Path
-    static_file = Path(__file__).parent / "static" / "chat.html"
-    if not static_file.exists():
-        return {"error": "Chat interface not found"}
-    return FileResponse(static_file)
+    static_dir = Path(__file__).parent / "static"
+    index_file = static_dir / "index.html"
+    if not index_file.exists():
+        return {"error": "SPA not built. Run Docker build."}
+    return FileResponse(index_file)
+
+# Mount the 'assets' directory (from Vite build) to /assets
+from pathlib import Path
+static_assets = Path(__file__).parent / "static" / "assets"
+if static_assets.exists():
+    app.mount("/assets", StaticFiles(directory=static_assets), name="assets")
 
 
 def _format_sse(data: str, event: str | None = None) -> str:
