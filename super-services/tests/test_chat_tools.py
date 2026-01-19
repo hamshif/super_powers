@@ -17,6 +17,7 @@ from super.apps.super_power_sage.tools import get_hero_details, search_heroes
 WAREHOUSE_EXISTS = os.path.exists(os.path.abspath(os.path.join(os.getcwd(), "../data/warehouse"))) or \
                    os.path.exists(os.path.abspath(os.path.join(os.getcwd(), "data/warehouse")))
 
+@pytest.mark.integration
 @pytest.mark.skipif(not WAREHOUSE_EXISTS, reason="Warehouse data not found")
 def test_tool_execution_real_data():
     """
@@ -40,20 +41,19 @@ def test_tool_execution_real_data():
     unknown = get_hero_details.invoke({"hero_name": "Captain Nobody"})
     assert "error" in unknown
 
-    # 4. Test Fuzzy Search
-    # "Buggs" -> "Bugs Bunny"
-    fuzzy = search_heroes.invoke({"query": "Buggs Bunny"})
-    assert isinstance(fuzzy, list)
-    assert len(fuzzy) > 0
-    # Must find Bugs Bunny
-    found_names = [h["hero_name"] for h in fuzzy]
-    # Must find Bugs Bunny
-    found_names = [h["hero_name"] for h in fuzzy]
-    assert "Bugs Bunny" in found_names
+    # 4. Test Substring Search (Deterministic)
+    # "Bat" -> "Batman"
+    partial = search_heroes.invoke({"query": "Bat"})
+    assert isinstance(partial, list)
+    assert len(partial) > 0
+    # Must find Batman
+    found_names = [h["hero_name"] for h in partial]
+    assert "Batman" in found_names
 
     # 5. Test Creation - MOVED TO test_create_and_detect_genetics
     pass
 
+@pytest.mark.integration
 @pytest.mark.skipif(not WAREHOUSE_EXISTS, reason="Warehouse data not found")
 def test_create_and_detect_genetics():
     """

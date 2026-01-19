@@ -1,8 +1,10 @@
 import os
+import pytest
 
 import httpx
 
 
+@pytest.mark.unit
 def test_openai_api_access_smoke() -> None:
     api_key = os.getenv("OMGENE_OPEN_AI_API_KEY")
     assert api_key, "OMGENE_OPEN_AI_API_KEY must be set to run this smoke test"

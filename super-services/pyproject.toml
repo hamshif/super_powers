@@ -52,3 +52,11 @@ filterwarnings = [
   "ignore:.*:DeprecationWarning:pyhocon",
   "ignore:.*:DeprecationWarning:pyparsing",
 ]
+markers = [
+    "unit: connect to nothing, fast",
+    "integration: connect to real services (LLM, Warehouse, Spark)"
+]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"

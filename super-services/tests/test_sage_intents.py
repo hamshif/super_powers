@@ -7,6 +7,7 @@ from super.apps.super_power_sage.agent import SageGraphFactory
 from super.apps.super_power_sage.models import UserIntent, IntentDecayRule, IntentUpdate
 
 
+@pytest.mark.unit
 def test_intent_retention_and_decay():
     """
     Verifies that:
@@ -22,6 +23,15 @@ async def _async_test_logic():
     # --- SETUP MOCKS ---
     # content generation model
     mock_model = MagicMock()
+    
+    # When agent calls model.bind_tools(...), it returns a bound runnable.
+    # The agent then awaits bound_runnable.ainvoke(...)
+    # So we need mock_model.bind_tools.return_value.ainvoke to be Async
+    mock_bound_llm = MagicMock()
+    mock_bound_llm.ainvoke = AsyncMock()
+    mock_model.bind_tools.return_value = mock_bound_llm
+    
+    # Also mock basic ainvoke just in case
     mock_model.ainvoke = AsyncMock()
     
     # extractor (structured output)
@@ -66,7 +76,9 @@ async def _async_test_logic():
     ]
     
     # Mock chat response
-    mock_model.ainvoke.return_value = AIMessage(content="Acknowledged.")
+    mock_response = AIMessage(content="Acknowledged.")
+    mock_model.ainvoke.return_value = mock_response
+    mock_bound_llm.ainvoke.return_value = mock_response
 
     # --- EXECUTION ---
     
