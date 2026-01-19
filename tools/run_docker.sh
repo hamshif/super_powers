@@ -19,11 +19,17 @@ if [ -f ".env" ]; then
     ENV_ARGS="--env-file .env.docker"
 fi
 
+# Cleanup existing container
+if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    echo "Stopping and removing existing container: $CONTAINER_NAME"
+    docker rm -f "$CONTAINER_NAME"
+fi
+
 # Build Docker Arguments
 DOCKER_OPTS=(
     -d
     --name "$CONTAINER_NAME"
-    --network host
+    -p 8000:8000
     --shm-size=2g
     -v "$(pwd)/super-services/src:/app/src"
 )
