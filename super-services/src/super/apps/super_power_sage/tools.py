@@ -337,6 +337,12 @@ async def create_new_hero(
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, ad_hoc.etl_single_hero, hero_name, ontology)
         
+        # 5. Verification
+        # Check if genes are retrievable
+        verify_data = get_hero_data(hero_name, ontology, warehouse_root=stage_root / "warehouse")
+        if not verify_data or not verify_data.get('master_gene'):
+             return f"Success! Hero {hero_name} created, but **WARNING**: Gene data could not be verified in warehouse immediately. Please check logs."
+        
         return f"Success! Hero {hero_name} has been created, generated, and added to the warehouse."
         
     except Exception as e:
