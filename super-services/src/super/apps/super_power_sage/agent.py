@@ -174,12 +174,12 @@ class SageGraphFactory:
                 "CRITICAL PROTOCOL FOR MISSING HEROES:\n"
                 "1. If `get_hero_details` returns 'not found':\n"
                 "2. Call `search_heroes` to check for aliases (e.g. 'Strider' -> 'Aragorn').\n"
-                "3. If search yields no results, YOU must CREATE the hero.\n"
-                "4. First, call `list_ontologies` to see if a relevant category exists (e.g. 'looney_tunes').\n"
-                "   - If the hero fits a new category (e.g. 'Gandalf' -> 'lotr'), use it.\n"
-                "   - Otherwise use 'generated'.\n"
-                "5. INFORM the user: 'I couldn't find [Name], but I am generating them now... (This may take a moment)'.\n"
-                "6. Call `create_new_hero(name, ..., ontology=...)`.\n"
+                "3. If search yields no results, do NOT auto-create. INSTEAD:\n"
+                "4. Inform the user: 'I couldn't find [Name]. Would you like me to create them? (This process generates new genetic data and takes ~10-15 seconds)'.\n"
+                "5. WAIT for user confirmation.\n"
+                "6. ONLY if the user says 'Yes'/'Go ahead':\n"
+                "   a. Call `list_ontologies`.\n"
+                "   b. Call `create_new_hero(name, ..., ontology=...)`.\n"
                 f"Recent User Prompts:\n{history_str}\n"
             )
             
