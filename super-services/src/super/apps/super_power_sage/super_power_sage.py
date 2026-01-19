@@ -126,6 +126,15 @@ async def _chat_stream(prompt: str, session_id: str) -> AsyncGenerator[str, None
                 if "messages" in node_output:
                     # Get the last message content
                     last_message = node_output["messages"][-1]
+                    
+                    # Check for tool_calls (AIMessage)
+                    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+                         for tool_call in last_message.tool_calls:
+                             tool_name = tool_call.get("name", "unknown")
+                             logger.debug(f"Agent calling tool: {tool_name}")
+                             # Emit tool usage event
+                             yield _format_sse(f"Using tool {tool_name}...", event="tool_use")
+
                     content = last_message.content
                     if content:
                          yield _format_sse(content, event="message")

@@ -1,4 +1,3 @@
-
 """
 LangGraph agent implementation for Super Power Sage.
 """
@@ -12,8 +11,15 @@ from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langgraph.graph import START, StateGraph, add_messages
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.prebuilt import ToolNode, tools_condition
 
 from super.apps.super_power_sage.models import UserIntent, IntentDecayRule, IntentUpdate
+from super.apps.super_power_sage.tools import (
+    get_hero_details, 
+    search_heroes, 
+    get_connected_entities, 
+    find_heroes_by_ability
+)
 
 
 def update_history(current: List[str], new: List[str]) -> List[str]:
@@ -55,6 +61,10 @@ class SageGraphFactory:
             A compiled LangGraph executable.
         """
         
+        # --- Tools Setup ---
+        tools = [get_hero_details, search_heroes, get_connected_entities, find_heroes_by_ability]
+        model_with_tools = model.bind_tools(tools)
+
         # --- Node Definitions ---
         
         async def manage_context(state: AgentState):
@@ -74,6 +84,10 @@ class SageGraphFactory:
             new_history_entry = [current_prompt] if current_prompt else []
             
             # 3. Intent Decay & Management
+            # Only process intents if we have a new user prompt
+            if not current_prompt:
+                 return {}
+
             active_intents = []
             satisfied_ids = set() # We will simulate this check or ask LLM
 
@@ -129,7 +143,7 @@ class SageGraphFactory:
                 
             except Exception as e:
                 # Fallback on error: keep existing non-decayed
-                print(f"Intent extraction failed: {e}")
+                # print(f"Intent extraction failed: {e}")
                 final_intents = non_decayed_intents
 
             return {
@@ -158,11 +172,11 @@ class SageGraphFactory:
             )
             
             # Prepend System message
-            # logic: if messages[0] is system, replace it. Else insert.
-            # Simplified: just use a fresh list for the model call
-            final_messages = [SystemMessage(content=system_prompt)] + messages
+            # Filter out old system messages to avoid duplication if we loop
+            filtered_messages = [m for m in messages if not isinstance(m, SystemMessage)]
+            final_messages = [SystemMessage(content=system_prompt)] + filtered_messages
             
-            response = await model.ainvoke(final_messages)
+            response = await model_with_tools.ainvoke(final_messages)
             return {"messages": [response]}
 
         # --- Graph Construction ---
@@ -170,23 +184,16 @@ class SageGraphFactory:
         workflow = StateGraph(AgentState)
         workflow.add_node("manage_context", manage_context)
         workflow.add_node("model", call_model)
+        workflow.add_node("tools", ToolNode(tools))
         
         workflow.add_edge(START, "manage_context")
         workflow.add_edge("manage_context", "model")
         
-        # We need a checkpointer for persistence primarily for cross-turn functionality
-        # But 'MemorySaver' usage is usually at the 'compile' stage with 'checkpointer=' arg.
-        # Since we are returning the graph, we expect the caller to pass checkpointer?
-        # Or we inject it here. The plan said "Initialize MemorySaver in global lifecycle".
-        # So 'super_power_sage.py' will hold the checkpointer and pass it to compile?
-        # Typically compile() takes the checkpointer.
-        # Let's assume the caller compiles it or we compile it here WITHOUT checkpointer
-        # and rely on the caller to manage checkpointer persistence?
-        # Wait, 'compile(checkpointer=...)' enables persistence.
-        # If I return 'workflow.compile()', I bake it in.
-        # I should probably accept checkpointer as arg or return uncompiled graph?
-        # Current code returns 'workflow.compile()'.
-        # I will change it to return the compiled graph with an internal checkpointer for now OR
-        # better: let's update call_model to NOT be async generator if not needed, but here it is fine.
+        # ReAct conditional routing
+        workflow.add_conditional_edges(
+            "model",
+            tools_condition,
+        )
+        workflow.add_edge("tools", "model")
         
         return workflow.compile(checkpointer=checkpointer)
