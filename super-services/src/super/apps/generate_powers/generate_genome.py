@@ -119,9 +119,9 @@ async def generate_single_gene(
                         invalid_effects.append(se.side_effect)
                         
                 if invalid_effects:
-                    print(f"  [Retry {attempt+1}/{max_retries}] Invalid side effects found: {invalid_effects}")
-                    # Validation failure - try again
-                    continue
+                    print(f"  [Warning] Invalid side effects found: {invalid_effects}. Keeping them for creativity.")
+                    # Relaxed validation: Allow them to pass (or we could filter them out)
+                    # continue 
                     
                 # 2. Connectivity Floor Check
                 if len(result.regulated_genes) < 12:

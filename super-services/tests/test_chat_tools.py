@@ -51,32 +51,25 @@ def test_tool_execution_real_data():
     found_names = [h["hero_name"] for h in fuzzy]
     assert "Bugs Bunny" in found_names
 
-    # 5. Test Creation & Genetics Retrieval
-    # Use a unique name to force creation (mocked LLM will handle generation logic inside tools)
-    # WARNING: This runs against REAL warehouse but via tools.py which mocks generation if we don't mock it here.
-    # Actually tools.py uses 'get_valid_llm_async' -> real OpenAI. 
-    # For this test to pass in CI without cost/key, we should ideally verify the tools logic, 
-    # but 'create_new_hero' is heavy. 
-    # The user ASKED for "test for genetics in the creation test".
-    # I will assume we can run this potentially expensive test if WAREHOUSE_EXISTS check passes.
-    
+    # 5. Test Creation - MOVED TO test_create_and_detect_genetics
+    pass
+
+@pytest.mark.skipif(not WAREHOUSE_EXISTS, reason="Warehouse data not found")
+def test_create_and_detect_genetics():
+    """
+    Test the full creation pipeline (Ad-Hoc ETL) and immediate verification.
+    """
     unique_hero = "GeneticsTester_9000"
     from super.apps.super_power_sage.tools import create_new_hero
     
-    # We need to run the async tool. 
-    # Since this is a synchronous pytest function (unless we use pytest-asyncio), 
-    # we might need to wrap it or use the AsyncTestCase below.
-    # But wait, 'create_new_hero' is async. 'get_hero_details' is sync.
-    # I will move this check to a new Async test method below or use asyncio.run().
-    
-    # Let's add it to the synchronous block using asyncio.run() for simplicity in this file structure
     import asyncio
     print(f"Creating {unique_hero}...")
     try:
+        # Run async tool synchronously
         res = asyncio.run(create_new_hero.ainvoke({
             "hero_name": unique_hero,
             "bio": "A test hero for genetics verification.",
-            "primary_seed_name": "Super Strength",
+            "primary_seed_name": "Heroic Strength",
             "ontology": "generated"
         }))
         print(f"Creation Result: {res}")
@@ -92,7 +85,6 @@ def test_tool_execution_real_data():
         
     except Exception as e:
         print(f"Creation test failed: {e}")
-        # Identify if it's an API key issue to skip gracefully?
         if "API Key" in str(e):
             pytest.skip("Skipping creation test due to missing API Key")
         else:

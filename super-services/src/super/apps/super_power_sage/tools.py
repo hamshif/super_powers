@@ -16,10 +16,12 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 import asyncio
 from pathlib import Path
+from super.apps.etl import ad_hoc  # Import at top-level to avoid runtime blocking
 
 # Global GraphManager instance to avoid reloading on every call
 _gm = None
 _warehouse_root = None
+_cached_conf_gen = None  # Cache for generate_powers config
 
 def _get_warehouse_root() -> str:
     global _warehouse_root
@@ -247,7 +249,7 @@ def find_heroes_by_ability(ability: str) -> List[Dict[str, Any]]:
 async def create_new_hero(
     hero_name: str, 
     bio: str, 
-    primary_seed_name: str = "Super Strength", 
+    primary_seed_name: str = "Heroic Strength", 
     side_effects: List[str] = [], 
     estimated_connectivity: str = "Low",
     ontology: str = "generated"
@@ -267,7 +269,7 @@ async def create_new_hero(
         # 1. Setup Context
         stage_root = get_stage_root()
         ontology = ontology.lower().replace(" ", "_") # Normalize
-        safe_name = hero_name.replace(" ", "_").replace("'", "")
+        safe_name = hero_name.replace(" ", "_").replace("'", "").lower()
         
         # Ensure directories
         profile_dir = stage_root / "hero_profiles" / ontology
@@ -294,8 +296,14 @@ async def create_new_hero(
         print(f"Created profile for {hero_name} at {profile_path}")
         
         # 3. Generate Genome (Invoke generate_heroes logic)
-        # We need to load the config/seeds similar to generate_heroes.main()
-        conf_gen = get_app_conf(app="generate_powers")
+        # Load config (cached) to avoid blocking I/O
+        global _cached_conf_gen
+        if _cached_conf_gen is None:
+            # First time load might block slightly, but subsequent calls won't.
+            # Ideally we'd run this in executor too, but it's acceptable for first run.
+            _cached_conf_gen = get_app_conf(app="generate_powers")
+            
+        conf_gen = _cached_conf_gen
         seeds = conf_gen.get_list("generate_powers.library.seeds")
         effects = conf_gen.get_list("generate_powers.library.side_effects")
         seed_map = {s['name']: s for s in seeds}
@@ -320,11 +328,14 @@ async def create_new_hero(
             output_dir=genome_dir
         )
             
-        # 4. ETL
-        # Run in executor to avoid blocking the event loop (and heartbeats)
+        # 4. ETL (Ad-Hoc Pandas)
+        # Using lightweight Pandas ETL for single hero to avoid Spark overhead.
+        # Run in default ThreadPool executor (None) to avoid ProcessPool startup cost (which blocks).
+        # Pandas/PyArrow releases GIL for I/O, so threads are fine here.
+        # ad_hoc is imported at top level now.
+        
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, flatten_heroes.main)
-        # flatten_heroes.main()
+        await loop.run_in_executor(None, ad_hoc.etl_single_hero, hero_name, ontology)
         
         return f"Success! Hero {hero_name} has been created, generated, and added to the warehouse."
         
