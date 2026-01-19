@@ -23,7 +23,14 @@ fi
 # --rm: Cleanup
 # -p 8000:8000: Port map
 # -e OPENAI_API_KEY: Pass key from host if set (overrides .env if passed explicitly)
-docker run -it --rm -p 8000:8000 $ENV_ARGS -e OPENAI_API_KEY super_powers:latest
+docker run -d \
+    --name $CONTAINER_NAME \
+    --network host \
+    --shm-size=2g \
+    -e OPENAI_API_KEY=$OPENAI_API_KEY \
+    -e TAVILY_API_KEY=$TAVILY_API_KEY \
+    -v $(pwd)/super-services/src:/app/src \
+    $IMAGE_NAME
 
 # Cleanup temp file
 [ -f ".env.docker" ] && rm .env.docker

@@ -98,6 +98,54 @@ async def main():
     await asyncio.gather(*tasks)
     logger.info("Hero Generation Complete.")
 
+async def generate_single_hero(
+    hero_name: str,
+    ontology: str,
+    model: ChatOpenAI,
+    system_prompt: str,
+    seed_map: dict,
+    effect_map: dict,
+    stage_root: Path,
+    output_dir: Path,
+    semaphore: asyncio.Semaphore
+):
+    """
+    Core logic to generate a single hero genome. 
+    Can be called by Actor or Script.
+    """
+    # 1. Load Profile
+    # We expect the profile to exist on disk for now, 
+    # OR we could accept a profile object. 
+    # For consistency with the actor which gets name/ontology, 
+    # let's try to load the profile first.
+    
+    profile_path = stage_root / "hero_profiles" / ontology / f"{hero_name.replace(' ', '_').lower()}.json"
+    
+    if not profile_path.exists():
+         # Fallback? Or Error?
+         # If called from Actor, we might want to try to CREATE one? 
+         # But the tool create_new_hero creates the profile. 
+         # So we can assume it exists.
+         # Wait, if we are RE-generating, it exists.
+         raise FileNotFoundError(f"Profile not found for {hero_name} at {profile_path}")
+
+    with open(profile_path, "r") as f:
+         data = f.read()
+         profile = HeroProfile.model_validate_json(data)
+         
+    # 2. Process
+    await process_hero(
+        profile=profile,
+        model=model,
+        system_prompt=system_prompt,
+        seed_map=seed_map,
+        effect_map=effect_map,
+        semaphore=semaphore,
+        output_dir=output_dir
+    )
+    return "Complete"
+
+
 async def process_hero(
     profile: HeroProfile,
     model: ChatOpenAI,

@@ -169,6 +169,7 @@ class SageGraphFactory:
             
             system_prompt = (
                 "You are Super Power Sage, a creative assistant for generating superpowers.\n"
+                "IMPORTANT: Always summarize tool outputs in natural language. DO NOT dump raw JSON or list structures to the user.\n"
                 f"{context_str}\n\n"
                 "CRITICAL PROTOCOL FOR MISSING HEROES:\n"
                 "1. If `get_hero_details` returns 'not found':\n"

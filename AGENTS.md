@@ -20,3 +20,8 @@
     - Use `async/await` for native async operations (e.g., LLM calls).
     - Offload blocking I/O or CPU tasks (e.g., Pandas ETL) to an executor (`loop.run_in_executor`).
 
+
+## 6. Testing Standards
+- **Local First**: You must run and verify the application locally (python/node) and produce success logs *before* creating or building any Docker images.
+    - **Workflow**: Local Code -> Local Run (Verify Logs) -> Docker Build.
+    - **Forbidden**: Do not propose building Docker images until local verification is complete.

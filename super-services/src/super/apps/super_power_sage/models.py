@@ -27,3 +27,20 @@ class IntentUpdate(BaseModel):
     """
     new_intents: List[UserIntent] = Field(description="List of NEW intents derived from the latest user message.")
     satisfied_intent_ids: List[str] = Field(description="List of IDs of EXISTING intents that are satisfied by the assistant's previous actions or the user's current confirmation.")
+
+
+class SseEventType(str, Enum):
+    """
+    Types of events sent via SSE.
+    """
+    STREAM_OF_THOUGHT = "stream_of_thought"
+    HEARTBEAT = "heartbeat"
+    ANSWER = "answer"
+    HERO_DATA = "hero_data"
+
+class SseEvent(BaseModel):
+    """
+    A unified model for Server-Sent Events.
+    """
+    event: SseEventType
+    data: str

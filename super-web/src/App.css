@@ -12,17 +12,17 @@
   width: 100%;
   max-width: 950px;
   height: 85vh;
-  
+
   /* GLASSMORPHISM CARD */
   background: var(--glass-surface);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
   border-radius: 16px;
-  box-shadow: 
+  box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  
+
   position: relative;
   overflow: hidden;
   transition: all 0.3s ease;
@@ -42,7 +42,8 @@ header {
 .app-logo {
   height: 32px;
   width: auto;
-  filter: drop-shadow(0 0 8px var(--cyber-cyan)); /* Blue Glowing logo */
+  filter: drop-shadow(0 0 8px var(--cyber-cyan));
+  /* Blue Glowing logo */
 }
 
 header h1 {
@@ -73,8 +74,15 @@ header h1 {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .message.user {
@@ -93,20 +101,23 @@ header h1 {
   line-height: 1.6;
   font-size: 0.95rem;
   position: relative;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 /* === USER BUBBLE: Black with Glowing Blue Text === */
 .user .bubble {
-  background: rgba(0, 0, 0, 0.85); /* Deep Black */
-  color: var(--cyber-cyan);        /* Neon Blue Text */
+  background: rgba(0, 0, 0, 0.85);
+  /* Deep Black */
+  color: var(--cyber-cyan);
+  /* Neon Blue Text */
   border: 1px solid rgba(0, 243, 255, 0.3);
   border-bottom-right-radius: 2px;
-  
+
   /* The "Hallowing" Glow Effect */
-  box-shadow: 0 0 15px rgba(0, 243, 255, 0.15); 
+  box-shadow: 0 0 15px rgba(0, 243, 255, 0.15);
   text-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
-  font-family: 'JetBrains Mono', monospace; /* Tech font matches the aesthetic */
+  font-family: 'JetBrains Mono', monospace;
+  /* Tech font matches the aesthetic */
 }
 
 /* Assistant Bubble */
@@ -140,14 +151,106 @@ header h1 {
   gap: 6px;
 }
 
-.log-item.thinking { color: var(--cyber-cyan); animation: pulse 1.5s infinite; }
-.log-item.done { color: #50fa7b; }
-.log-item.error { color: #ff5555; }
+/* THOUGHT PROCESS WIDGET */
+.thought-process {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.thought-process summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: var(--cyber-cyan);
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.thought-process summary:hover {
+  background: rgba(0, 243, 255, 0.05);
+}
+
+.thought-content {
+  padding: 10px 12px;
+  border-top: 1px solid var(--glass-border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  background: rgba(0, 0, 0, 0.3);
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.thought-content div {
+  animation: fadeIn 0.2s ease-out;
+}
+
+
+.log-item.thinking {
+  color: var(--cyber-cyan);
+  animation: pulse 1.5s infinite;
+}
+
+.log-item.done {
+  color: #50fa7b;
+}
+
+.log-item.error {
+  color: #ff5555;
+}
 
 @keyframes pulse {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
+  0% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.6;
+  }
+}
+
+/* Side Channel Data Styling */
+.hero-data-block {
+  background: #0f1a15;
+  /* Dark greenish/matrix/terminal feel */
+  border: 1px solid #33ff33;
+  color: #ccffcc;
+  border-radius: 6px;
+  margin: 10px 0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 0 10px rgba(51, 255, 51, 0.1);
+}
+
+.hero-data-header {
+  background: rgba(51, 255, 51, 0.1);
+  padding: 5px 10px;
+  font-weight: bold;
+  border-bottom: 1px solid #33ff33;
+  letter-spacing: 1px;
+}
+
+.hero-data-content {
+  padding: 10px;
+  margin: 0;
+  overflow-x: auto;
+  max-height: 300px;
+  /* Scrollable if huge */
+  white-space: pre;
 }
 
 /* Input Area */
@@ -196,7 +299,8 @@ button {
 
 button:hover:not(:disabled) {
   background: var(--cyber-cyan);
-  color: #000; /* Text turns black on hover for contrast */
+  color: #000;
+  /* Text turns black on hover for contrast */
   box-shadow: 0 0 20px var(--cyber-glow);
 }
 
@@ -208,9 +312,19 @@ button:disabled {
 }
 
 /* Markdown Styles */
-.bubble p { margin: 0 0 10px 0; }
-.bubble p:last-child { margin: 0; }
-.bubble strong { color: var(--cyber-cyan); font-weight: 600; }
+.bubble p {
+  margin: 0 0 10px 0;
+}
+
+.bubble p:last-child {
+  margin: 0;
+}
+
+.bubble strong {
+  color: var(--cyber-cyan);
+  font-weight: 600;
+}
+
 .bubble pre {
   background: rgba(0, 0, 0, 0.4);
   padding: 15px;
@@ -218,8 +332,10 @@ button:disabled {
   border: 1px solid var(--glass-border);
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.85em;
-  overflow-x: auto; /* Ensure code blocks scroll */
+  overflow-x: auto;
+  /* Ensure code blocks scroll */
 }
+
 .bubble code {
   background: rgba(255, 255, 255, 0.1);
   padding: 2px 5px;
@@ -244,29 +360,38 @@ button:disabled {
 .logo-seal {
   width: 42px;
   height: 42px;
-  border: 2px solid var(--cyber-cyan); /* The Blue Ring */
-  border-radius: 8px; /* Slight curve, like a modern app icon */
+  border: 2px solid var(--cyber-cyan);
+  /* The Blue Ring */
+  border-radius: 8px;
+  /* Slight curve, like a modern app icon */
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   /* Typography for the Kanji */
   font-family: 'Noto Sans JP', sans-serif;
   font-weight: 700;
   font-size: 1.5rem;
   color: var(--cyber-cyan);
-  
+
   /* The "Hallowing" Glow */
-  box-shadow: 
+  box-shadow:
     0 0 10px var(--cyber-glow),
     inset 0 0 8px var(--cyber-glow);
   text-shadow: 0 0 5px var(--cyber-cyan);
-  
+
   /* Animation on load */
   animation: sealFadeIn 1s ease-out forwards;
 }
 
 @keyframes sealFadeIn {
-  0% { opacity: 0; transform: scale(1.5); }
-  100% { opacity: 1; transform: scale(1); }
+  0% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }

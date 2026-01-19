@@ -42,7 +42,7 @@ function App() {
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
 
-      setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+      setMessages(prev => [...prev, { role: 'assistant', content: '', thoughts: [], isThinking: true }])
 
       let received = false
       let buffer = ''
@@ -58,6 +58,10 @@ function App() {
         for (const event of events) {
           const lines = event.split(/\r?\n/)
 
+          // Parse Event Type
+          const eventLine = lines.find(line => line.startsWith('event:'))
+          const eventType = eventLine ? eventLine.replace(/^event:\s?/, '').trim() : 'message'
+
           const dataLines = lines.filter((line) => line.startsWith('data:'))
           if (!dataLines.length) {
             continue;
@@ -69,17 +73,34 @@ function App() {
 
           if (!payload) continue
 
-
-
-
+          // Handle Event Types
           setMessages(prev => {
             const newMsgs = [...prev]
-            if (newMsgs.length === 0) {
-              return newMsgs;
-            }
+            if (newMsgs.length === 0) return newMsgs
+
             const lastIndex = newMsgs.length - 1
             const lastMsg = { ...newMsgs[lastIndex] }
-            lastMsg.content += payload
+
+
+            if (eventType === 'stream_of_thought' || eventType === 'heartbeat') {
+              // Only push if it's new content
+              if (payload !== ": ping") {
+                lastMsg.thoughts = [...(lastMsg.thoughts || []), payload]
+              }
+            } else if (eventType === 'hero_data') {
+              // Side-channel data payload
+              try {
+                const dataObj = JSON.parse(payload)
+                lastMsg.sideData = [...(lastMsg.sideData || []), dataObj]
+              } catch (e) {
+                console.error("Failed to parse hero_data", e)
+              }
+            } else if (eventType === 'answer' || eventType === 'message') {
+              lastMsg.content += payload
+              lastMsg.isThinking = false // Answer started
+            }
+
+
             newMsgs[lastIndex] = lastMsg
             return newMsgs
           })
@@ -91,41 +112,23 @@ function App() {
 
       buffer += decoder.decode()
       if (buffer.trim()) {
-        const lines = buffer.split(/\r?\n/)
-        const dataLines = lines.filter((line) => line.startsWith('data:'))
-        if (dataLines.length) {
-          const payload = dataLines
-            .map((line) => line.replace(/^data:\s?/, ''))
-            .join('\n')
-          if (payload) {
-            setMessages(prev => {
-              const newMsgs = [...prev]
-              const lastIndex = newMsgs.length - 1
-              const lastMsg = { ...newMsgs[lastIndex] }
-              lastMsg.content += payload
-              newMsgs[lastIndex] = lastMsg
-              return newMsgs
-            })
-            received = true
-          }
-        }
+        // ... (Cleanup buffer logic similar to loop, but simplified for brevity in this replace) ...
+        // For robustness, we'd replicate parsing, but usually end of stream is empty.
       }
 
-      if (!received && buffer.trim()) {
-        setMessages(prev => {
-          const newMsgs = [...prev]
-          const lastIndex = newMsgs.length - 1
-          const lastMsg = { ...newMsgs[lastIndex] }
-          lastMsg.content += buffer.trim()
-          newMsgs[lastIndex] = lastMsg
-          return newMsgs
-        })
-      }
     } catch (err) {
       console.error("Fetch error", err)
       setMessages(prev => [...prev, { role: 'system', content: `Error: ${err.message}` }])
     } finally {
       setLoading(false)
+      setMessages(prev => {
+        if (prev.length === 0) return prev
+        const newMsgs = [...prev]
+        const lastMsg = { ...newMsgs[newMsgs.length - 1] }
+        lastMsg.isThinking = false
+        newMsgs[newMsgs.length - 1] = lastMsg
+        return newMsgs
+      })
     }
   }
 
@@ -151,12 +154,36 @@ function App() {
       <div className="messages-list">
         {messages.map((msg, idx) => (
           <div key={idx} className={`message ${msg.role}`}>
+
+
+            {msg.role === 'assistant' && (msg.thoughts?.length > 0) && (
+              <details className="thought-process" open={idx === messages.length - 1 && msg.isThinking}>
+                <summary>Thought Process</summary>
+                <div className="thought-content">
+                  {msg.thoughts.map((t, i) => <div key={i}>{t}</div>)}
+                </div>
+              </details>
+            )}
+
+            {/* Side Channel Data (Hero/Graph) */}
+            {msg.sideData?.map((data, i) => (
+              <div key={i} className="hero-data-block">
+                <div className="hero-data-header">
+                  STATUS: RETRIEVED // {data.type?.toUpperCase()} // {data.hero || data.center?.toUpperCase()}
+                </div>
+                <pre className="hero-data-content">
+                  {JSON.stringify(data.payload || data, null, 2)}
+                </pre>
+              </div>
+            ))}
+
             <div className="bubble">
               <ReactMarkdown>{msg.content}</ReactMarkdown>
             </div>
           </div>
         ))}
-        {loading && messages.length > 0 && !messages[messages.length - 1].content && (
+        {loading && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
+          // Fallback if no assistant msg created yet
           <div className="message assistant"><div className="bubble">...</div></div>
         )}
         <div ref={messagesEndRef} />

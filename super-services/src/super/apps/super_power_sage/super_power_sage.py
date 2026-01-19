@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import json
 import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -22,6 +23,7 @@ from pydantic import BaseModel
 from super.apps.super_power_sage.agent import SageGraphFactory
 from super.config import get_app_conf
 from super.core import utils
+from super.apps.super_power_sage import state
 
 # Configure a logger for this module
 logger = logging.getLogger(__name__)
@@ -34,6 +36,8 @@ class HealthResponse(BaseModel):
 class ChatRequest(BaseModel):
     prompt: str
     session_id: str = "default"
+
+
 
 
 # Global reference to the compiled graph
@@ -72,8 +76,31 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     level = conf.get_string("super_power_sage.logging.level", "INFO")
     _apply_log_level(level)
     logger.info("Super Power Sage starting up...")
+    
+    # 1. Initialize Ray and Actor
+    try:
+        import ray
+        from super.apps.generate_powers.worker import HeroGenerator
+        from super.apps.super_power_sage import state
+        
+        # Init Ray (auto-detects existing cluster or starts local)
+        if not ray.is_initialized():
+            ray.init(ignore_reinit_error=True)
+            
+        logger.info("Ray Initialized.")
+        
+        # Start Actor
+        # Use a named actor if we want to ensure only one exists, or just create one.
+        # For simplicity in this app, we create one instance for the app lifespan.
+        state.hero_generator = HeroGenerator.remote()
+        logger.info("HeroGenerator Actor started and registered in state.")
+        
+    except ImportError as e:
+        logger.warning(f"Ray/HeroGenerator dependencies not found. Asynchronous generation will fail: {e}")
+    except Exception as e:
+        logger.error(f"Failed to initialize Ray Actor: {e}", exc_info=True)
 
-    # Init Agent
+    # 2. Init Agent
     # Uses robust initialization with active rate-limit check and fallback
     try:
         model = utils.get_valid_llm(model_name="gpt-3.5-turbo")
@@ -93,6 +120,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     # Shutdown logic
     logger.info("Super Power Sage shutting down...")
+    if ray.is_initialized():
+        ray.shutdown()
+        logger.info("Ray shutdown.")
+
 
 
 app = FastAPI(title="Super Power Sage", lifespan=lifespan)
@@ -109,10 +140,12 @@ app.add_middleware(
 
 
 
-def _format_sse(data: str, event: str | None = None) -> str:
+from super.apps.super_power_sage.models import SseEventType
+
+def _format_sse(data: str, event: SseEventType | None = None) -> str:
     lines: list[str] = []
     if event:
-        lines.append(f"event: {event}")
+        lines.append(f"event: {event.value}")
     for line in data.splitlines() or [""]:
         lines.append(f"data: {line}")
     return "\n".join(lines) + "\n\n"
@@ -121,7 +154,7 @@ def _format_sse(data: str, event: str | None = None) -> str:
 async def _chat_stream(prompt: str, session_id: str) -> AsyncGenerator[str, None]:
     """Streams responses from the LangGraph agent."""
     if not _graph:
-         yield _format_sse("Error: Agent graph not initialized.", event="message")
+         yield _format_sse("Error: Agent graph not initialized.", event=SseEventType.ANSWER)
          return
 
     try:
@@ -151,29 +184,53 @@ async def _chat_stream(prompt: str, session_id: str) -> AsyncGenerator[str, None
         next_task = asyncio.create_task(get_next_chunk())
         
         while True:
+            # Drain the queue for HERO_DATA events
+            while state.data_queue:
+                data_item = state.data_queue.pop(0)
+                yield _format_sse(
+                    json.dumps(data_item),
+                    event=SseEventType.HERO_DATA
+                )
+
             done, pending = await asyncio.wait([next_task], timeout=3.0)
 
             if next_task in done:
-                # Task completed
-                event = next_task.result()
-                if event is None:
+                # Graph task completed, get the next chunk
+                try:
+                    chunk = next_task.result()
+                except StopAsyncIteration:
+                    # Stream has ended
+                    break
+                except Exception as e:
+                    logger.error(f"Error during graph stream: {e}", exc_info=True)
+                    yield _format_sse(f"Error processing request: {str(e)}", event=SseEventType.ANSWER)
                     break
                 
-                # Process Event
-                for node_name, node_output in event.items():
-                    if "messages" in node_output:
-                        last_message = node_output["messages"][-1]
+                if chunk is None:
+                    break
+
+                # Process the chunk (which is a dictionary of node updates)
+                for node_name, node_update in chunk.items():
+                    if "messages" in node_update:
+                        last_message = node_update["messages"][-1]
                         
                         # Check for tool_calls (AIMessage)
                         if hasattr(last_message, "tool_calls") and last_message.tool_calls:
                                 for tool_call in last_message.tool_calls:
                                     tool_name = tool_call.get("name", "unknown")
                                     logger.debug(f"Agent calling tool: {tool_name}")
-                                    yield _format_sse(f"Using tool {tool_name}...", event="tool_use")
+                                    yield _format_sse(f"Using tool {tool_name}...", event=SseEventType.STREAM_OF_THOUGHT)
 
                         content = last_message.content
                         if content:
-                                yield _format_sse(content, event="message")
+                                # Standard content is the Answer
+                                yield _format_sse(content, event=SseEventType.ANSWER)
+                    
+                    # Also catching 'manage_context' updates or other node outputs if we want to show them as thought
+                    if node_name == "manage_context":
+                         # We could show intent updates here if desired
+                         yield _format_sse("Updating context & intents...", event=SseEventType.STREAM_OF_THOUGHT)
+
                 
                 # Start waiting for next chunk
                 next_task = asyncio.create_task(get_next_chunk())
@@ -181,12 +238,12 @@ async def _chat_stream(prompt: str, session_id: str) -> AsyncGenerator[str, None
             else:
                 # Timeout / Still Pending -> Heartbeat
                 msg = random.choice(thinking_messages)
-                yield _format_sse(msg, event="tool_use")
+                yield _format_sse(msg, event=SseEventType.HEARTBEAT)
                 # Loop back to wait for the SAME next_task
 
     except Exception as e:
         logger.error(f"Error calling agent: {e}", exc_info=True)
-        yield _format_sse(f"Error processing request: {str(e)}", event="message")
+        yield _format_sse(f"Error processing request: {str(e)}", event=SseEventType.ANSWER)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -223,9 +280,23 @@ async def super_powers_sage(request: ChatRequest) -> StreamingResponse:
 # We place this AFTER API routes so they take precedence.
 # html=True means it serves index.html for root /.
 from pathlib import Path
+
+# Static file serving logic
+# 1. Try local dev build (super-web/dist) relative to project root
+# file is in .../src/super/apps/super_power_sage/super_power_sage.py
+# parents: [0]super_power_sage [1]apps [2]super [3]src [4]super-services [5]project_root
+project_root = Path(__file__).parents[5]
+dev_dist_dir = project_root / "super-web" / "dist"
 static_dir = Path(__file__).parent / "static"
-if static_dir.exists():
+
+if dev_dist_dir.exists():
+    logger.info(f"Serving static files from local build: {dev_dist_dir}")
+    app.mount("/", StaticFiles(directory=dev_dist_dir, html=True), name="static")
+elif static_dir.exists():
+    logger.info(f"Serving static files from internal static dir: {static_dir}")
     app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+else:
+    logger.warning("No static files found. Frontend will not be available.")
 
 
 def main() -> None:

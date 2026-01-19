@@ -180,8 +180,34 @@ class GraphManager:
                     heroes.append(n)
         return heroes
 
+    def get_subgraph_for_node(self, node_id, depth=1):
+        """
+        Extracts a subgraph centered on a node and returns it as a serialized dictionary
+        suitable for frontend visualization (JSON).
+        
+        Returns:
+            dict: {"nodes": [...], "edges": [...]} or empty if node not found.
+        """
+        if node_id not in self.G:
+            return {"nodes": [], "edges": []}
+            
+        nodes = {node_id}
+        curr = {node_id}
+        for _ in range(depth):
+            next_nodes = set()
+            for n in curr:
+                neighbors = set(self.G.successors(n)) | set(self.G.predecessors(n))
+                next_nodes.update(neighbors)
+            nodes.update(next_nodes)
+            curr = next_nodes
+            
+        subG = self.G.subgraph(nodes)
+        
+        # Serialize
+        return nx.node_link_data(subG)
+
     def subgraph_for_hero(self, hero_name, depth=2):
-        """Extracts a subgraph centered on a hero."""
+        """Extracts a subgraph centered on a hero (returns nx.Graph)."""
         if hero_name not in self.G:
             return None
         

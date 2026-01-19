@@ -24,47 +24,16 @@ _warehouse_root = None
 _cached_conf_gen = None  # Cache for generate_powers config
 
 def _get_warehouse_root() -> str:
+    """Resolve warehouse root using central configuration."""
     global _warehouse_root
     if _warehouse_root:
         return _warehouse_root
     
-    # Try Env
-    env_root = os.getenv("WAREHOUSE_ROOT")
-    if env_root and os.path.exists(env_root):
-        _warehouse_root = env_root
-        return env_root
-
-    # Use System Standard Stage Root
-    try:
-        from super.core.utils import get_stage_root
-        stage_root = get_stage_root()
-        warehouse_path = stage_root / "warehouse"
-        if warehouse_path.exists():
-             _warehouse_root = str(warehouse_path)
-             return _warehouse_root
-    except ImportError:
-        pass
-
-    # Try relative from current working directory (assuming we are in project root or subfolder)
-    # Common cases:
-    # 1. /home/gideon/tmp/super_powers/super-services -> ../data/warehouse
-    # 2. /home/gideon/tmp/super_powers -> data/warehouse
+    stage_root = get_stage_root()
+    warehouse_path = stage_root / "warehouse"
     
-    cwd = os.getcwd()
-    candidates = [
-        os.path.join(cwd, "../data/warehouse"),
-        os.path.join(cwd, "data/warehouse"),
-        os.path.join(cwd, "../../data/warehouse"), # original default
-        "/home/gideon/tmp/super_powers/data/warehouse" # Absolute fallback
-    ]
-    
-    for path in candidates:
-        if os.path.exists(path):
-            _warehouse_root = os.path.abspath(path)
-            return _warehouse_root
-            
-    # Default fallback
-    return os.path.abspath(os.path.join(cwd, "../../data/warehouse"))
+    _warehouse_root = str(warehouse_path.resolve())
+    return _warehouse_root
 
 def _get_gm() -> GraphManager:
     global _gm
@@ -74,19 +43,50 @@ def _get_gm() -> GraphManager:
     return _gm
 
 @tool
-def get_hero_details(hero_name: str, ontology: Optional[str] = None) -> Dict[str, Any]:
+async def get_hero_details(hero_name: str) -> str:
     """
-    Retrieve detailed information about a hero, including their bio, genetics, and gene regulation network.
+    Retrieves detailed information about a hero, including their genome.
     
     Args:
-        hero_name: The exact name of the hero (e.g., "Bugs Bunny").
-        ontology: Optional ontology to optimize search (e.g., "looney_tunes").
+        hero_name: The name of the hero to retrieve.
+        
+    Returns:
+        A concise summary of the hero. Detailed genetic data is sent to the user's view directly.
     """
     root = _get_warehouse_root()
-    data = get_hero_data(hero_name, ontology=ontology, warehouse_root=root)
-    if data:
-        return data
-    return {"error": f"Hero '{hero_name}' not found."}
+    data_str = get_hero_data(hero_name, warehouse_root=root)
+    if not data_str:
+        return f"Hero '{hero_name}' not found in the database. Try searching for aliases."
+    
+    
+    
+    # Check if data_str is already a dict (pandas return) or string
+    if isinstance(data_str, dict):
+        data = data_str
+    else:
+        # Parse the data to send structured JSON to SSE
+        import json
+        try:
+            data = json.loads(data_str)
+        except (json.JSONDecodeError, TypeError):
+             # Fallback if decode fails or if data_str is not string/bytes
+             data = {"raw": str(data_str)} 
+    
+    # Push to side-channel
+    from super.apps.super_power_sage import state
+    state.data_queue.append({
+        "type": "genetic_data",
+        "hero": hero_name,
+        "payload": data
+    })
+    
+    # Return Summary to LLM
+    bio = data.get("profile", {}).get("bio", "No bio available.")[:200]
+    return (
+        f"Genetic data for '{hero_name}' has been retrieved and sent to the user's view.\n"
+        f"Brief Bio: {bio}...\n"
+        f"(Full details are visible to the user)"
+    )
 
 @tool
 def search_heroes(query: str) -> List[Dict[str, Any]]:
@@ -195,39 +195,46 @@ def list_ontologies() -> List[str]:
         return [f"Error listing ontologies: {e}"]
 
 @tool
-def get_connected_entities(entity_name: str, depth: int = 1) -> Dict[str, Any]:
+async def get_connected_entities(entity_name: str, degree: int = 1) -> str:
     """
-    Explore the knowledge graph to find entities (Heroes, Genes, powers) connected to a given entity.
-    Useful for answering "Who does X know?" or "What is related to gene Y?".
+    Finds entities connected to the given entity in the knowledge graph.
+    Useful for finding side effects, seeds, or other heroes related to a specific trait.
     
     Args:
-        entity_name: Name of the node to start traversal from.
-        depth: How many hops to traverse (default 1, max 2 recommended).
+        entity_name: The central entity to search for (e.g., 'Batman', 'Super Strength').
+        degree: The number of hops to traverse (default: 1).
+        
+    Returns:
+        A summary of connections. Visual graph data is sent to the user's view directly.
     """
-    gm = _get_gm()
+    manager = _get_gm() # Use global manager
+    graph_data = manager.get_subgraph_for_node(entity_name, degree)
     
-    # Check if node exists
-    if entity_name not in gm.G:
-        return {"error": f"Entity '{entity_name}' not found in the graph."}
-        
-    sub_G = gm.subgraph_for_hero(entity_name, depth=depth)
-    if not sub_G:
-        return {"error": "Could not extract subgraph."}
-        
-    # Convert subgraph to a simple JSON structure
-    nodes = []
-    for n, data in sub_G.nodes(data=True):
-        nodes.append({"id": n, "type": data.get('type', 'Unknown'), "label": data.get('label', n)})
-        
-    edges = []
-    for u, v, data in sub_G.edges(data=True):
-        edges.append({"source": u, "target": v, "relation": data.get('relation', 'RELATED')})
-        
-    return {
+    # Push to side-channel
+    from super.apps.super_power_sage import state
+    state.data_queue.append({
+        "type": "graph_view",
         "center": entity_name,
-        "nodes": nodes,
-        "edges": edges
-    }
+        "payload": graph_data
+    })
+    
+    # Generate Summary for LLM
+    nodes = graph_data.get("nodes", [])
+    edges = graph_data.get("edges", [])
+    
+    node_count = len(nodes)
+    edge_count = len(edges)
+    
+    # Create text summary of immediate connections
+    summary_lines = [f"Found {node_count} nodes and {edge_count} edges connected to '{entity_name}'."]
+    
+    if edges:
+        examples = edges[:5]
+        summary_lines.append("Examples:")
+        for e in examples:
+            summary_lines.append(f"- {e['source']} {e['relation']} {e['target']}")
+    
+    return "\n".join(summary_lines)
 
 @tool
 def find_heroes_by_ability(ability: str) -> List[Dict[str, Any]]:
@@ -274,8 +281,7 @@ async def create_new_hero(
         # Ensure directories
         profile_dir = stage_root / "hero_profiles" / ontology
         profile_dir.mkdir(parents=True, exist_ok=True)
-        genome_dir = stage_root / "hero_genomes" / ontology
-        genome_dir.mkdir(parents=True, exist_ok=True)
+        # Genome dir creation is handled by actor, but safe to do here too
         
         # 2. Create Profile
         profile = HeroProfile(
@@ -288,62 +294,36 @@ async def create_new_hero(
             estimated_connectivity=estimated_connectivity
         )
         
-        # Save Profile
+        # Save Profile (Needed by Actor)
         profile_path = profile_dir / f"{safe_name}.json"
         with open(profile_path, "w") as f:
             f.write(profile.model_dump_json(indent=2))
             
         print(f"Created profile for {hero_name} at {profile_path}")
         
-        # 3. Generate Genome (Invoke generate_heroes logic)
-        # Load config (cached) to avoid blocking I/O
-        global _cached_conf_gen
-        if _cached_conf_gen is None:
-            # First time load might block slightly, but subsequent calls won't.
-            # Ideally we'd run this in executor too, but it's acceptable for first run.
-            _cached_conf_gen = get_app_conf(app="generate_powers")
-            
-        conf_gen = _cached_conf_gen
-        seeds = conf_gen.get_list("generate_powers.library.seeds")
-        effects = conf_gen.get_list("generate_powers.library.side_effects")
-        seed_map = {s['name']: s for s in seeds}
-        effect_map = {e['name']: e for e in effects}
+        # 3. Submit to Ray Actor
+        # Retrieve the global actor instance from the shared state module
+        from super.apps.super_power_sage import state
         
-        system_prompt = conf_gen.get_string("generate_genome.system_prompt")
+        if state.hero_generator is None:
+             return "Error: Hero Generation Service (Ray Actor) is not initialized. Cannot create hero."
         
-        # Init Model (Robust)
-        # Init Model (Robust)
-        from super.core import utils
-        model = await utils.get_valid_llm_async(model_name="gpt-4o", temperature=0.8)
-        semaphore = asyncio.Semaphore(1) # Single task
+        # Submit task
+        print(f"Submitting generation task for {hero_name} to Ray Actor...")
+        result = await state.hero_generator.generate_hero.remote(hero_name, ontology)
         
-        # Run Generation
-        await generate_heroes.process_hero(
-            profile=profile,
-            model=model,
-            system_prompt=system_prompt,
-            seed_map=seed_map,
-            effect_map=effect_map,
-            semaphore=semaphore,
-            output_dir=genome_dir
-        )
-            
-        # 4. ETL (Ad-Hoc Pandas)
-        # Using lightweight Pandas ETL for single hero to avoid Spark overhead.
-        # Run in default ThreadPool executor (None) to avoid ProcessPool startup cost (which blocks).
-        # Pandas/PyArrow releases GIL for I/O, so threads are fine here.
-        # ad_hoc is imported at top level now.
-        
+        # 4. ETL (Ad-Hoc)
+        # The Actor only generates the JSON. We still need to ETL it to the warehouse.
+        # Note: Eventual consistency race condition is handled by ad_hoc.py's retry loop now!
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, ad_hoc.etl_single_hero, hero_name, ontology)
         
         # 5. Verification
-        # Check if genes are retrievable
         verify_data = get_hero_data(hero_name, ontology, warehouse_root=stage_root / "warehouse")
         if not verify_data or not verify_data.get('master_gene'):
-             return f"Success! Hero {hero_name} created, but **WARNING**: Gene data could not be verified in warehouse immediately. Please check logs."
+             return f"Success! Hero {hero_name} created, but **WARNING**: Gene data could not be verified in warehouse immediately. Please check logs. Raw Result: {result}"
         
-        return f"Success! Hero {hero_name} has been created, generated, and added to the warehouse."
+        return f"Success! Hero {hero_name} has been created. {result}"
         
     except Exception as e:
         import traceback
@@ -351,7 +331,6 @@ async def create_new_hero(
 
     finally:
         # Cache Invalidation
-        # Force GraphManager to reload on next call (intake fresh Parquet)
         global _gm
         _gm = None
         print("DEBUG: GraphManager cache cleared.")
