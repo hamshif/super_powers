@@ -106,13 +106,7 @@ app.add_middleware(
 )
 
 
-# Mount the entire static directory to root to serve index.html and all public assets (e.g. images)
-# We place this AFTER API routes so they take precedence.
-# html=True means it serves index.html for root /.
-from pathlib import Path
-static_dir = Path(__file__).parent / "static"
-if static_dir.exists():
-    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+
 
 
 def _format_sse(data: str, event: str | None = None) -> str:
@@ -223,6 +217,15 @@ async def super_powers_sage(request: ChatRequest) -> StreamingResponse:
         media_type="text/event-stream",
         headers=headers,
     )
+
+
+# Mount the entire static directory to root to serve index.html and all public assets (e.g. images)
+# We place this AFTER API routes so they take precedence.
+# html=True means it serves index.html for root /.
+from pathlib import Path
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
 
 def main() -> None:
