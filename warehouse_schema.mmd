@@ -1,0 +1,83 @@
+%%{
+  init: {
+    'theme': 'base',
+    'themeVariables': {
+      'primaryColor': '#85C1E9',
+      'primaryTextColor': '#000000',
+      'primaryBorderColor': '#000000',
+      'lineColor': '#000000',
+      'secondaryColor': '#3498DB',
+      'tertiaryColor': '#D6EAF8'
+    },
+    'er': {
+        'fontSize': 16,
+        'fill': '#85C1E9',
+        'stroke': '#000000'
+    }
+  }
+}%%
+
+erDiagram
+    %% --- HERO DATA (Instances) ---
+    HERO_PROFILES {
+        string hero_name PK
+        string ontology
+        string primary_seed
+    }
+
+    HERO_GENES {
+        string gene_id PK
+        string hero_name FK
+        string mutation_class
+        string role "Master Regulator"
+    }
+
+    HERO_GENE_REGULATION {
+        string source_gene_id FK
+        string target_gene_id
+        string effect
+        float strength
+    }
+
+    HERO_PROFILES ||--|| HERO_GENES : "possesses (Master)"
+    HERO_GENES ||--|{ HERO_GENE_REGULATION : "orchestrates (Cluster)"
+
+    %% --- GENE LIBRARY (Definitions) ---
+    GENES {
+        string gene_id PK
+        string mutation_class
+        float stability_index
+    }
+
+    GENE_REGULATION {
+        string source_gene_id FK
+        string target_gene_id
+        string effect
+    }
+
+    POWERS {
+        string power_id PK
+        string power_name
+        string description
+    }
+    
+    GENE_SEEDS {
+        string gene_id FK
+        string seed_name
+    }
+    
+    GENE_SIDE_EFFECTS {
+        string gene_id FK
+        string side_effect_name
+    }
+
+    %% Cross-Domain Relationships
+    HERO_GENES }|--|| GENES : "instance_of"
+    HERO_GENE_REGULATION }|--|| GENES : "targets"
+    
+    GENES ||--|{ GENE_REGULATION : "canonical_regulation"
+    GENES ||--|{ GENE_SEEDS : "composed_of"
+    GENES ||--|{ GENE_SIDE_EFFECTS : "risks"
+    
+    %% Implicit Link (Seeds -> Powers)
+    GENE_SEEDS }|..|{ POWERS : "related_power"
