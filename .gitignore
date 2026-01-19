@@ -61,6 +61,7 @@ conf/developer/
 secret.*
 secrets.*
 .env
+.env.docker
 # Temporary helper scripts
 tmp/
 *.log
