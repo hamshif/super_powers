@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.memory import MemorySaver 
 from pydantic import BaseModel
 
 from super.apps.super_power_sage.agent import SageGraphFactory
@@ -29,6 +30,7 @@ class HealthResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     prompt: str
+    session_id: str = "default"
 
 
 # Global reference to the compiled graph
@@ -73,10 +75,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if not api_key:
         logger.warning("OMGENE_OPEN_AI_API_KEY not found! Agent will fail if called.")
     
+    # Checkpointer for persistence
+    checkpointer = MemorySaver()
+
     # Dependency Injection: Inject OpenAI model
     model = ChatOpenAI(api_key=api_key, model="gpt-3.5-turbo")
-    _graph = SageGraphFactory.create_graph(model)
-    logger.info("Agent graph initialized.")
+    _graph = SageGraphFactory.create_graph(model, checkpointer=checkpointer)
+    logger.info("Agent graph initialized with persistence.")
     
     yield
     
@@ -104,7 +109,7 @@ def _format_sse(data: str, event: str | None = None) -> str:
     return "\n".join(lines) + "\n\n"
 
 
-async def _chat_stream(prompt: str) -> AsyncGenerator[str, None]:
+async def _chat_stream(prompt: str, session_id: str) -> AsyncGenerator[str, None]:
     """Streams responses from the LangGraph agent."""
     if not _graph:
          yield _format_sse("Error: Agent graph not initialized.", event="message")
@@ -112,7 +117,9 @@ async def _chat_stream(prompt: str) -> AsyncGenerator[str, None]:
 
     try:
         inputs = {"messages": [HumanMessage(content=prompt)]}
-        async for event in _graph.astream(inputs, stream_mode="updates"):
+        config = {"configurable": {"thread_id": session_id}}
+
+        async for event in _graph.astream(inputs, config=config, stream_mode="updates"):
             # LangGraph 'updates' mode yields dicts of node updates.
             # We look for the 'model' node output.
             for node_name, node_output in event.items():
@@ -135,14 +142,14 @@ def health() -> HealthResponse:
 
 @app.post("/super_powers_sage")
 async def super_powers_sage(request: ChatRequest) -> StreamingResponse:
-    logger.debug("Received request: prompt=%s", request.prompt)
+    logger.debug("Received request: prompt=%s session=%s", request.prompt, request.session_id)
 
     async def event_generator():
         # Yield an initial ping/comment to force headers to be sent immediately
         yield ": ping\n\n"
         
         # Then yield the actual response stream
-        async for chunk in _chat_stream(request.prompt):
+        async for chunk in _chat_stream(request.prompt, request.session_id):
              yield chunk
 
     headers = {
