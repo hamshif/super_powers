@@ -25,18 +25,16 @@ echo "Cloning local repository..."
 git clone "${PROJECT_ROOT}" "${STAGE_DIR}"
 
 # 3. Inject Data Zip
-# Find the latest data zip in project root using strict regex pattern
-# Pattern: data_<numeric>kb_<hex>.zip (e.g., data_1794kb_a11b4f9.zip)
-# We use 'find' with posix-extended regex, sort by modification time reversed (newest first).
-LATEST_ZIP=$(find "${PROJECT_ROOT}" -maxdepth 1 -regextype posix-extended -regex ".*/data_[0-9]+kb_[a-f0-9]+\.zip" -printf "%T@ %p\n" | sort -rn | head -n1 | cut -d' ' -f2-)
+# Standardized Name: data.zip
+ZIP_PATH="${PROJECT_ROOT}/data.zip"
 
-if [ -z "${LATEST_ZIP}" ]; then
-    echo "ERROR: No data zip found matching regex 'data_[0-9]+kb_[a-f0-9]+.zip'. Cannot build."
+if [ ! -f "${ZIP_PATH}" ]; then
+    echo "ERROR: ${ZIP_PATH} not found. Please run 'python3 tools/zip_data.py' first."
     exit 1
 fi
 
-echo "Injecting Data: $(basename "${LATEST_ZIP}") -> data.zip"
-cp "${LATEST_ZIP}" "${STAGE_DIR}/data.zip"
+echo "Injecting Data: data.zip"
+cp "${ZIP_PATH}" "${STAGE_DIR}/data.zip"
 
 # 4. Copy Dockerfile
 # We move the Dockerfile to the root of the context

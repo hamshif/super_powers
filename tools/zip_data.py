@@ -4,18 +4,19 @@ import shutil
 import subprocess
 from pathlib import Path
 import zipfile
+import datetime
 
 def zip_data_dir():
     # 1. Setup Paths
-    # Script is in tools/, so project root is one level up
     project_root = Path(__file__).resolve().parent.parent
     data_dir = project_root / "data"
+    output_zip = project_root / "data.zip"
     
     if not data_dir.exists():
         print(f"Error: Data directory not found at {data_dir}")
         return
 
-    # 2. Get Git Commit Hash
+    # 2. Get Metadata
     try:
         commit_hash = subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"], 
@@ -23,50 +24,60 @@ def zip_data_dir():
             text=True
         ).strip()
     except subprocess.CalledProcessError:
-        print("Warning: Could not get git commit hash. Using 'unknown'.")
         commit_hash = "unknown"
 
+    # Calculate dir size
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(data_dir):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            if not os.path.islink(fp):
+                total_size += os.path.getsize(fp)
+    
+    size_mb = total_size / (1024 * 1024)
+    date_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
     print(f"Zipping data directory: {data_dir}")
-    print(f"Current Commit: {commit_hash}")
+    print(f"Metadata: Commit={commit_hash}, Size={size_mb:.2f}MB, Date={date_str}")
 
-    # 3. Create Zip (to temporary name first)
-    # We use 'zipfile' to have control over the structure (avoiding excessive nesting if needed)
-    # or shutil.make_archive. shutil is simplest.
-    # It creates a zip file with the base_name + .zip
-    
-    temp_base = project_root / "temp_data_archive"
-    archive_path = shutil.make_archive(
-        base_name=str(temp_base),
-        format="zip",
-        root_dir=project_root,
-        base_dir="data" # This keeps the 'data' folder inside the zip
-    )
-    
-    archive_path = Path(archive_path) # Now points to temp_data_archive.zip
+    # 3. Create Config File
+    conf_content = f"""data_change_log {{
+    date = "{date_str}"
+    size = "{size_mb:.2f}MB"
+    commit = "{commit_hash}"
+}}
+"""
+    conf_path = project_root / "data_change_log.conf"
+    with open(conf_path, "w") as f:
+        f.write(conf_content)
 
-    # 4. Calculate Size
-    size_bytes = archive_path.stat().st_size
-    size_kb = int(size_bytes / 1024)
-    
-    # 5. Formulate New Name
-    # Format: data_<kb>_<last commit>.zip
-    new_name = f"data_{size_kb}kb_{commit_hash}.zip"
-    final_path = project_root / new_name
-    
-    # 6. Rename
-    if final_path.exists():
-        os.remove(final_path)
+    # 4. Create Zip
+    # We use 'zipfile' to add both the directory and the config file at root
+    try:
+        with zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # Add Config
+            zf.write(conf_path, arcname="data_change_log.conf")
+            
+            # Add Data Directory
+            # arcname should be relative to project root, e.g. "data/foo.txt"
+            for root, dirs, files in os.walk(data_dir):
+                for file in files:
+                    file_path = Path(root) / file
+                    # Relative path for archive
+                    arcname = file_path.relative_to(project_root)
+                    zf.write(file_path, arcname=arcname)
+                    
+        print("-" * 40)
+        print(f"SUCCESS")
+        print("-" * 40)
+        print(f"Archive created: {output_zip.name}")
+        print(f"Location:        {output_zip}")
+        print("-" * 40)
         
-    archive_path.rename(final_path)
-    
-    # 7. Log
-    print("-" * 40)
-    print(f"SUCCESS")
-    print("-" * 40)
-    print(f"Archive created: {final_path.name}")
-    print(f"Location:        {final_path}")
-    print(f"Size:            {size_kb:,} KB")
-    print("-" * 40)
+    finally:
+        # Cleanup config file from root (it's inside the zip now)
+        if conf_path.exists():
+            os.remove(conf_path)
 
 if __name__ == "__main__":
     zip_data_dir()
