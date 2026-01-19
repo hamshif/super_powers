@@ -164,8 +164,11 @@ async def generate_single_gene(
                 
             except Exception as e:
                 print(f"  [Error] Failed to generate {gene_id} (Attempt {attempt+1}): {e}")
-                if attempt == max_retries - 1:
-                    print(f"  [Failure] Giving up on {gene_id} after {max_retries} attempts.")
+                
+        # If we exit the loop, we failed
+        err_msg = f"Failed to generate gene {gene_id} after {max_retries} attempts."
+        print(f"  [Failure] {err_msg}")
+        raise RuntimeError(err_msg)
 
 
 

@@ -331,3 +331,10 @@ async def create_new_hero(
     except Exception as e:
         import traceback
         return f"Failed to create hero: {e} \n{traceback.format_exc()}"
+
+    finally:
+        # Cache Invalidation
+        # Force GraphManager to reload on next call (intake fresh Parquet)
+        global _gm
+        _gm = None
+        print("DEBUG: GraphManager cache cleared.")

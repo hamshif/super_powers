@@ -47,7 +47,56 @@ def test_tool_execution_real_data():
     assert len(fuzzy) > 0
     # Must find Bugs Bunny
     found_names = [h["hero_name"] for h in fuzzy]
+    # Must find Bugs Bunny
+    found_names = [h["hero_name"] for h in fuzzy]
     assert "Bugs Bunny" in found_names
+
+    # 5. Test Creation & Genetics Retrieval
+    # Use a unique name to force creation (mocked LLM will handle generation logic inside tools)
+    # WARNING: This runs against REAL warehouse but via tools.py which mocks generation if we don't mock it here.
+    # Actually tools.py uses 'get_valid_llm_async' -> real OpenAI. 
+    # For this test to pass in CI without cost/key, we should ideally verify the tools logic, 
+    # but 'create_new_hero' is heavy. 
+    # The user ASKED for "test for genetics in the creation test".
+    # I will assume we can run this potentially expensive test if WAREHOUSE_EXISTS check passes.
+    
+    unique_hero = "GeneticsTester_9000"
+    from super.apps.super_power_sage.tools import create_new_hero
+    
+    # We need to run the async tool. 
+    # Since this is a synchronous pytest function (unless we use pytest-asyncio), 
+    # we might need to wrap it or use the AsyncTestCase below.
+    # But wait, 'create_new_hero' is async. 'get_hero_details' is sync.
+    # I will move this check to a new Async test method below or use asyncio.run().
+    
+    # Let's add it to the synchronous block using asyncio.run() for simplicity in this file structure
+    import asyncio
+    print(f"Creating {unique_hero}...")
+    try:
+        res = asyncio.run(create_new_hero.ainvoke({
+            "hero_name": unique_hero,
+            "bio": "A test hero for genetics verification.",
+            "primary_seed_name": "Super Strength",
+            "ontology": "generated"
+        }))
+        print(f"Creation Result: {res}")
+        assert "Success" in res
+        
+        # Verify Genetics immediately
+        details = get_hero_details.invoke({"hero_name": unique_hero, "ontology": "generated"})
+        print(f"Details: {details}")
+        
+        # KEY ASSERTION requested by User
+        assert details.get("master_gene") is not None, "Master Gene should be present after creation!"
+        assert details.get("genome_cluster") is not None
+        
+    except Exception as e:
+        print(f"Creation test failed: {e}")
+        # Identify if it's an API key issue to skip gracefully?
+        if "API Key" in str(e):
+            pytest.skip("Skipping creation test due to missing API Key")
+        else:
+            raise e
 
 import unittest
 

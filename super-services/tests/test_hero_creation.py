@@ -219,3 +219,15 @@ def test_hero_creation_pipeline(setup_environment):
     assert "MIGHTY-001" in mm_genes['gene_id'].values
     
     print("Integration Test Complete: Profile -> Genome -> Warehouse success.")
+
+    # Check hero_gene_regulation.parquet
+    reg_pq = warehouse_root / "hero_gene_regulation"
+    assert reg_pq.exists(), "Regulation table not found"
+    df_reg = pd.read_parquet(reg_pq)
+    
+    mm_reg = df_reg[df_reg['hero_name'] == hero_name]
+    assert not mm_reg.empty, f"{hero_name} regulation not found in parquet"
+    print(f"Regulation entries found: {len(mm_reg)}")
+    assert len(mm_reg) >= 12, "Expected at least 12 links (from mock)"
+
+    print("Integration Test Complete: Profile -> Genome -> Regulation -> Warehouse success.")
