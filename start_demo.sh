@@ -7,7 +7,8 @@ echo "   🦸 Super Powers Sage: Reviewer Demo   "
 echo "============================================"
 
 # Ensure we are in project root (where this script lives)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Ensure we are in project root (where this script lives)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "${SCRIPT_DIR}"
 
 echo ""

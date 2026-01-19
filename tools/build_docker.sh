@@ -3,7 +3,8 @@
 set -euo pipefail
 
 # Find project root
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Find project root
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 STAGE_DIR="${PROJECT_ROOT}/stage/docker_context"
 
