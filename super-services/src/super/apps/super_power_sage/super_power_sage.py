@@ -77,11 +77,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Uses robust initialization with active rate-limit check and fallback
     try:
         model = utils.get_valid_llm(model_name="gpt-3.5-turbo")
-    except RuntimeError as e:
-        logger.error(f"Failed to initialize Agent Model: {e}")
-        # Build a dummy model or re-raise depending on strictness. 
-        # For now, let's re-raise to fail fast if no key works.
-        raise e
+    except (RuntimeError, ValueError) as e:
+        logger.error(f"Failed to initialize Agent Model (Quota/Key issue): {e}")
+        logger.warning("STARTING IN MOCK/OFFLINE MODE. Chat will fail until valid keys are provided.")
+        # Fallback to a dummy model so the server starts. 
+        # Runtime calls will fail gracefully in the chat stream.
+        model = ChatOpenAI(api_key="sk-mock-key-to-allow-startup", model="gpt-3.5-turbo")
     checkpointer = MemorySaver()
 
     # Dependency Injection: Inject OpenAI model
