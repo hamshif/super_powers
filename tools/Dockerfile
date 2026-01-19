@@ -60,9 +60,16 @@ COPY . /app
 # (Note: This replaces any 'chat.html' we stuck there)
 COPY --from=frontend-builder /app/frontend/dist /app/super-services/src/super/apps/super_power_sage/static
 
-# 5.2. Unpack Data
-COPY data.zip /app/data.zip
-RUN unzip /app/data.zip -d /app && rm /app/data.zip
+# 5.2. Unpack Data (Inject into Default Stage Root)
+# Config defaults stage_root to $HOME/stage/$PROJECT_NAME (i.e., /root/stage/app)
+# zip_data.py wraps everything in a 'data' folder, so we must unpack and move it up.
+RUN mkdir -p /root/stage/app
+COPY data.zip /root/stage/app/data.zip
+RUN unzip /root/stage/app/data.zip -d /root/stage/app && \
+    rm /root/stage/app/data.zip && \
+    # Move contents of 'data' (warehouse, hero_profiles, etc.) to stage root
+    mv /root/stage/app/data/* /root/stage/app/ && \
+    rmdir /root/stage/app/data
 
 # 6. Final Install / Verification
 RUN bash package_py.sh
