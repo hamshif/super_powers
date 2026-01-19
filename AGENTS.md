@@ -1,24 +1,22 @@
-Version Control
-==
+# Agent Guidelines
 
-Agents will not make commits without explicit permission.
+## 1. Version Control
+- **Commits**: Do not create git commits without explicit user permission.
 
-Configuration
-==
+## 2. Configuration Standards
+- **Strict Loading**: When using configuration helpers (e.g., `get_project_conf`, `get_app_conf`), **NEVER** supply fallbacks or try catch wrappers! using `project_root`, `stage_root` to retain a strict single source of truth.
+- **Explicit Failure**: If a required configuration root or file is absent, the application MUST crash or raise an explicit error immediately. Silent defaults hide deployment issues.
+- **Environment Compliance**: Minimize & Respect the use of environment variables `.env` and environment variables as the source of truth for credentials and paths.
 
-When using configuration loading helpers, do not supply fallback defaults for missing config roots or files; failures should be explicit if configuration is absent.
+## 3. Planning
+- **Questions**: When user asks questions answer them and stop to verify alignment before proceeding.
+- **Large Plans**: When formulating large plans, break them down into smaller tasks and verify alignment before proceeding. 
 
-Codex Sandbox
-==
+## 4. File Organization
+- **Notebooks**: Unless otherwise specified, Jupyter notebooks should be placed in `super-explore/`. Never create `notebooks/` directories inside service modules (e.g., `super-services/`).
 
-Codex runs with workspace-only write permissions, so it cannot modify files outside `/home/gideon/tmp/super_powers` (e.g., `~/.pyenv`). Operations that require writing there must be performed by the user or with an escalated command request.
+## 5. Concurrency & Performance
+- **Thread & Process Safety**: Non-Blocking tools executed by agents must NOT block the main thread.
+    - Use `async/await` for native async operations (e.g., LLM calls).
+    - Offload blocking I/O or CPU tasks (e.g., Pandas ETL) to an executor (`loop.run_in_executor`).
 
-Tool Implementation & Concurrency
-==
-
-Tools executed by agents (especially in async event loops like FastAPI/LangGraph) must NOT block the main thread.
-1.  **Async/Await**: Native async code should be used whenever possible (e.g., `ainvoke` for LLMs).
-2.  **Thread Safety**: Blocking I/O or CPU-intensive tasks (like ETL or Pandas writes) must be offloaded to an executor (e.g., `loop.run_in_executor`).
-3.  **Process Safety**: Shared resources (like database connections or graphs) must be process-safe or initialized per-request if not designed for concurrency.
-
-**Example**: The `Super Power Sage` tools (`src/super/apps/super_power_sage/tools.py`) strictly follow these rules, using `ThreadPoolExecutor` for the `ad_hoc.py` Pandas ETL to prevent blocking the FastAPI event loop.
