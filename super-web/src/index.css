@@ -28,28 +28,48 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  
+
   /* BACKGROUND IMAGE SETUP */
-  background-image: url('/buggs_dna.png'); 
-  background-size: 40vw auto;
-  background-position: top left;
+  background-image: url('/buggs_dna.png');
+  background-size: 20vw auto;
+  background-position: 1cm 1cm;
   background-attachment: fixed;
   background-repeat: no-repeat;
-  
-  overflow: hidden; 
+
+  overflow: hidden;
 }
 
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 10px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--cyber-cyan);
+}
+
+body::after {
+  content: "Ain't I a stinker!";
+  position: fixed;
+  top: calc(1cm + 11vw);
+  /* 1cm margin + ~10.9vw image height */
+  left: 1cm;
+  width: 20vw;
+  text-align: center;
+  color: var(--cyber-cyan);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: bold;
+  font-style: italic;
+  pointer-events: none;
+  z-index: -1;
 }
