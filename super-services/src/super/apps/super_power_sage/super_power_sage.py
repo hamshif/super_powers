@@ -106,20 +106,13 @@ app.add_middleware(
 )
 
 
-@app.get("/")
-async def serve_spa_root():
-    from pathlib import Path
-    static_dir = Path(__file__).parent / "static"
-    index_file = static_dir / "index.html"
-    if not index_file.exists():
-        return {"error": "SPA not built. Run Docker build."}
-    return FileResponse(index_file)
-
-# Mount the 'assets' directory (from Vite build) to /assets
+# Mount the entire static directory to root to serve index.html and all public assets (e.g. images)
+# We place this AFTER API routes so they take precedence.
+# html=True means it serves index.html for root /.
 from pathlib import Path
-static_assets = Path(__file__).parent / "static" / "assets"
-if static_assets.exists():
-    app.mount("/assets", StaticFiles(directory=static_assets), name="assets")
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
 
 def _format_sse(data: str, event: str | None = None) -> str:
