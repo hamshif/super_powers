@@ -49,3 +49,6 @@ docker run "${DOCKER_OPTS[@]}" $ENV_ARGS "$IMAGE_NAME"
 
 # Cleanup temp file
 [ -f ".env.docker" ] && rm .env.docker
+
+echo "Container started. Tailing logs (Ctrl+C to stop viewing, container continues running)..."
+exec docker logs -f "$CONTAINER_NAME"
