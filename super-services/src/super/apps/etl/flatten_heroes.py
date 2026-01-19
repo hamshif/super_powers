@@ -43,7 +43,7 @@ def main():
             F.col("bio"),
             F.col("estimated_connectivity")
         )
-        t_profiles.write.mode("overwrite").parquet(os.path.join(warehouse_root, "hero_profiles"))
+        t_profiles.write.mode("overwrite").partitionBy("ontology").parquet(os.path.join(warehouse_root, "hero_profiles"))
         
         # 2. hero_profile_seeds.parquet
         print("Building 'hero_profile_seeds' table...")
@@ -99,22 +99,24 @@ def main():
             F.col("confidence").cast("float"),
             F.col("failure_mode")
         )
-        t_hero_genes.write.mode("overwrite").parquet(os.path.join(warehouse_root, "hero_genes"))
+        t_hero_genes.write.mode("overwrite").partitionBy("ontology").parquet(os.path.join(warehouse_root, "hero_genes"))
         
         # 5. hero_gene_regulation.parquet
         print("Building 'hero_gene_regulation' table...")
         t_hero_reg = genomes_df.select(
             F.col("gene_id").alias("source_gene_id"),
-            F.col("hero_name"),
+            F.col("hero_name"), # Denormalization useful for partitioning/querying
+            F.col("ontology"),
             F.explode("regulated_genes").alias("reg")
         ).select(
             F.col("source_gene_id"),
-            F.col("hero_name"), # Denormalization useful for partitioning/querying
+            F.col("hero_name"), 
+            F.col("ontology"),
             F.col("reg.gene_id").alias("target_gene_id"),
             F.col("reg.effect").alias("effect"),
             F.col("reg.strength").alias("strength").cast("float")
         )
-        t_hero_reg.write.mode("overwrite").parquet(os.path.join(warehouse_root, "hero_gene_regulation"))
+        t_hero_reg.write.mode("overwrite").partitionBy("ontology").parquet(os.path.join(warehouse_root, "hero_gene_regulation"))
         
         # 6. hero_gene_seeds.parquet
         print("Building 'hero_gene_seeds' table...")
