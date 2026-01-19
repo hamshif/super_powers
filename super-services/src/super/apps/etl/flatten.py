@@ -79,19 +79,38 @@ def main():
     t_gene_seeds = primary.unionByName(secondary)
     t_gene_seeds.write.mode("overwrite").parquet(os.path.join(warehouse_root, "gene_seeds"))
 
-    # 3. gene_side_effects.parquet
-    print("Building 'gene_side_effects' table...")
+    # --- PART 3: CLEANING & ENRICHMENT ---
+    
+    # Side Effect Cleaning Map
+    # Canonicalize known dupes and fix typos
+    cleaning_map = {
+        "Idological Rigidity": "Ideological Rigidity", # Fix typo
+        "Rule Awareness Leak": "Rule Awareness"        # Deduplicate
+    }
+    
+    # Broadcast map for UDF
+    cleaning_broadcast = spark.sparkContext.broadcast(cleaning_map)
+
+    def clean_side_effect(name):
+        return cleaning_broadcast.value.get(name, name)
+
+    clean_udf = F.udf(clean_side_effect, StringType())
+
+    # 3. gene_side_effects.parquet (Updated with Cleaning)
+    print("Building 'gene_side_effects' table (with cleaning)...")
     t_side_effects = genes_df.select(
         F.col("gene_id"),
         F.explode("side_effect_profile").alias("se")
     ).select(
         F.col("gene_id"),
-        F.col("se.side_effect").alias("side_effect_name"),
+        clean_udf(F.col("se.side_effect")).alias("side_effect_name"),
         F.col("se.probability").alias("probability").cast("float"),
         F.col("se.severity").alias("severity").cast("int"),
         F.col("se.trigger_condition").alias("trigger_condition")
     )
     t_side_effects.write.mode("overwrite").parquet(os.path.join(warehouse_root, "gene_side_effects"))
+    
+    # --- PART 4: REMAINING TABLES ---
     
     # 4. gene_regulation.parquet
     print("Building 'gene_regulation' table...")
@@ -143,11 +162,12 @@ def main():
     # 6. power_seeds.parquet
     print("Building 'power_seeds' table...")
     
-    # Primary Link (Seed owning the file)
+    # Primary Link (Seed owning the file) - Assign Weight 1.0 (or derivation)
     p_primary_seeds = exploded_powers.select(
         F.col("power_id"),
         F.col("primary_seed").alias("seed_name"),
-        F.lit("primary").alias("role")
+        F.lit("primary").alias("role"),
+        F.lit(1.0).alias("weight").cast("float")
     )
     
     # Secondary Link (Mixed seeds in the variant)
@@ -158,7 +178,8 @@ def main():
     ).where(F.col("seed_obj").isNotNull()).select(
         F.col("power_id"),
         F.col("seed_obj.name").alias("seed_name"),
-        F.lit("secondary").alias("role")
+        F.lit("secondary").alias("role"),
+        F.col("seed_obj.influence").alias("weight").cast("float")
     )
     
     t_power_seeds = p_primary_seeds.unionByName(p_secondary_seeds)
