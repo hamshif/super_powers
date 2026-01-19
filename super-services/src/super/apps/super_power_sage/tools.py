@@ -277,6 +277,23 @@ async def create_new_hero(
         stage_root = get_stage_root()
         ontology = ontology.lower().replace(" ", "_") # Normalize
         safe_name = hero_name.replace(" ", "_").replace("'", "").lower()
+
+        # Validate Seed exists in config
+        from super.core.utils import get_app_conf
+        conf = get_app_conf(app="generate_powers")
+        seeds_list = conf.get_list("generate_powers.library.seeds")
+        valid_seeds = {s['name'].lower(): s['name'] for s in seeds_list}
+        
+        if primary_seed_name.lower() not in valid_seeds:
+            # Simple fuzzy fix or error
+            # User wants to be asked, so we return an error to the Agent.
+            # We can offer suggestions.
+            matching = [real for lower, real in valid_seeds.items() if primary_seed_name.lower() in lower or lower in primary_seed_name.lower()]
+            suggestions = ", ".join(matching[:3])
+            return f"Error: The seed '{primary_seed_name}' is not in the library. Did you mean: {suggestions}? Please ask the user to clarify."
+            
+        # Use the correct casing from config
+        primary_seed_name = valid_seeds[primary_seed_name.lower()]
         
         # Ensure directories
         profile_dir = stage_root / "hero_profiles" / ontology
