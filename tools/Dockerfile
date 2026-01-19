@@ -40,6 +40,8 @@ RUN unzip /app/data.zip -d /app && rm /app/data.zip
 # We use the existing installer script which handles Spark download and pip install
 # We force HOME to /root so it installs Spark to /root/opt
 ENV HOME=/root
+# Upgrade build tools to support PEP 660 (editable installs)
+RUN python -m pip install --upgrade pip setuptools wheel
 RUN bash package_py.sh
 
 # 5. Setup Runtime
