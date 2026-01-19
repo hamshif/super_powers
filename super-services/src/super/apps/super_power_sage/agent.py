@@ -19,7 +19,8 @@ from super.apps.super_power_sage.tools import (
     search_heroes, 
     get_connected_entities, 
     find_heroes_by_ability,
-    create_new_hero
+    create_new_hero,
+    list_ontologies
 )
 
 
@@ -63,7 +64,7 @@ class SageGraphFactory:
         """
         
         # --- Tools Setup ---
-        tools = [get_hero_details, search_heroes, get_connected_entities, find_heroes_by_ability, create_new_hero]
+        tools = [get_hero_details, search_heroes, get_connected_entities, find_heroes_by_ability, create_new_hero, list_ontologies]
         model_with_tools = model.bind_tools(tools)
 
         # --- Node Definitions ---
@@ -169,6 +170,15 @@ class SageGraphFactory:
             system_prompt = (
                 "You are Super Power Sage, a creative assistant for generating superpowers.\n"
                 f"{context_str}\n\n"
+                "CRITICAL PROTOCOL FOR MISSING HEROES:\n"
+                "1. If `get_hero_details` returns 'not found':\n"
+                "2. Call `search_heroes` to check for aliases (e.g. 'Strider' -> 'Aragorn').\n"
+                "3. If search yields no results, YOU must CREATE the hero.\n"
+                "4. First, call `list_ontologies` to see if a relevant category exists (e.g. 'looney_tunes').\n"
+                "   - If the hero fits a new category (e.g. 'Gandalf' -> 'lotr'), use it.\n"
+                "   - Otherwise use 'generated'.\n"
+                "5. INFORM the user: 'I couldn't find [Name], but I am generating them now... (This may take a moment)'.\n"
+                "6. Call `create_new_hero(name, ..., ontology=...)`.\n"
                 f"Recent User Prompts:\n{history_str}\n"
             )
             

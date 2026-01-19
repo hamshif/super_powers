@@ -69,6 +69,10 @@ def test_hero_creation_pipeline(setup_environment):
     hero_name = env["hero_name"]
     profile_path = env["profile_path"]
     
+    # Verify Ontology Usage
+    ontology = "generated" # Default for this test, but let's be explicit
+    assert env["ontology"] == ontology
+    
     print(f"\n[BEFORE] --- 1. Creating Hero Profile for Target: {hero_name} ---")
     print(f"[INFO] Target retrieved from configuration: {hero_name}")
     

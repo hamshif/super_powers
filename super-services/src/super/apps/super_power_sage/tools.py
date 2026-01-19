@@ -174,6 +174,25 @@ def search_heroes(query: str) -> List[Dict[str, Any]]:
     return []
 
 @tool
+def list_ontologies() -> List[str]:
+    """
+    List all available ontologies (universes/categories) in the Super Power Warehouse.
+    Useful for checking if a category like 'lotr' or 'star_wars' already exists.
+    """
+    try:
+        root = _get_warehouse_root()
+        df = get_all_heroes_data(warehouse_root=root)
+        if df.empty:
+            return []
+        
+        # Extract unique ontologies
+        # Normalized to lowercase for consistency
+        ontologies = sorted(df['ontology'].dropna().unique().tolist())
+        return ontologies
+    except Exception as e:
+        return [f"Error listing ontologies: {e}"]
+
+@tool
 def get_connected_entities(entity_name: str, depth: int = 1) -> Dict[str, Any]:
     """
     Explore the knowledge graph to find entities (Heroes, Genes, powers) connected to a given entity.
@@ -230,7 +249,8 @@ async def create_new_hero(
     bio: str, 
     primary_seed_name: str = "Super Strength", 
     side_effects: List[str] = [], 
-    estimated_connectivity: str = "Low"
+    estimated_connectivity: str = "Low",
+    ontology: str = "generated"
 ) -> str:
     """
     Creates a new hero from scratch! This will generate their DNA, Powers, and add them to the warehouse.
@@ -241,11 +261,12 @@ async def create_new_hero(
         primary_seed_name: The main power source/seed (e.g., "Super Strength", "Flight", "Speed", "Magic", "Telepathy").
         side_effects: List of potential side effects (e.g., "Hubris", "Mutation").
         estimated_connectivity: Complexity of the hero ("Low" or "High").
+        ontology: The universe or category (e.g., "generated", "lotr", "star_wars"). Defaults to "generated".
     """
     try:
         # 1. Setup Context
         stage_root = get_stage_root()
-        ontology = "generated"
+        ontology = ontology.lower().replace(" ", "_") # Normalize
         safe_name = hero_name.replace(" ", "_").replace("'", "")
         
         # Ensure directories
@@ -283,8 +304,9 @@ async def create_new_hero(
         system_prompt = conf_gen.get_string("generate_genome.system_prompt")
         
         # Init Model (Robust)
+        # Init Model (Robust)
         from super.core import utils
-        model = utils.get_valid_llm(model_name="gpt-4o", temperature=0.8)
+        model = await utils.get_valid_llm_async(model_name="gpt-4o", temperature=0.8)
         semaphore = asyncio.Semaphore(1) # Single task
         
         # Run Generation
@@ -299,12 +321,10 @@ async def create_new_hero(
         )
             
         # 4. ETL
-        # ETL is synchronous and blocking. In a real async app, we should offload this to a thread.
-        # loop = asyncio.get_running_loop()
-        # await loop.run_in_executor(None, flatten_heroes.main)
-        # For simplicity/safety with Spark context, checking if we can just call it.
-        # Spark operations often block.
-        flatten_heroes.main()
+        # Run in executor to avoid blocking the event loop (and heartbeats)
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, flatten_heroes.main)
+        # flatten_heroes.main()
         
         return f"Success! Hero {hero_name} has been created, generated, and added to the warehouse."
         

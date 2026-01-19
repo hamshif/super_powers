@@ -210,4 +210,42 @@ def get_valid_llm(model_name: str = "gpt-4o", temperature: float = 0.7) -> ChatO
     raise RuntimeError(f"All API keys failed to initialize LLM: {errors}")
 
 
-__all__ = ["DEFAULT_APP", "get_app_conf", "get_project_conf", "get_stage_root", "get_valid_llm"]
+async def get_valid_llm_async(model_name: str = "gpt-4o", temperature: float = 0.7) -> ChatOpenAI:
+    """
+    Async version of get_valid_llm.
+    Initialize ChatOpenAI with active API key validation using async calls.
+    Methods requiring blocking I/O should not be used in the event loop.
+    """
+    candidates = [
+        ("OMGENE_OPEN_AI_API_KEY", os.getenv("OMGENE_OPEN_AI_API_KEY")),
+        ("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
+    ]
+    
+    # Filter empty keys
+    candidates = [(name, key) for name, key in candidates if key]
+    
+    if not candidates:
+        raise ValueError("No API Keys found (OMGENE... or OPENAI...)")
+        
+    errors = []
+    
+    for name, key in candidates:
+        try:
+            # Test the key with a lightweight call
+            test_model = ChatOpenAI(api_key=key, model=model_name, temperature=temperature, max_retries=1)
+            # Invoke a tiny prompt ASYNC
+            await test_model.ainvoke("test")
+            
+            logger.info(f"Successfully initialized LLM (Async) using {name}")
+            return test_model
+            
+        except Exception as e:
+            msg = f"API Key {name} failed: {str(e)}"
+            logger.warning(msg)
+            errors.append(msg)
+            
+    # If we get here, all failed
+    raise RuntimeError(f"All API keys failed to initialize LLM: {errors}")
+
+
+__all__ = ["DEFAULT_APP", "get_app_conf", "get_project_conf", "get_stage_root", "get_valid_llm", "get_valid_llm_async"]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -122,25 +123,61 @@ async def _chat_stream(prompt: str, session_id: str) -> AsyncGenerator[str, None
         inputs = {"messages": [HumanMessage(content=prompt)]}
         config = {"configurable": {"thread_id": session_id}}
 
-        async for event in _graph.astream(inputs, config=config, stream_mode="updates"):
-            # LangGraph 'updates' mode yields dicts of node updates.
-            # We look for the 'model' node output.
-            for node_name, node_output in event.items():
-                if "messages" in node_output:
-                    # Get the last message content
-                    last_message = node_output["messages"][-1]
-                    
-                    # Check for tool_calls (AIMessage)
-                    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-                         for tool_call in last_message.tool_calls:
-                             tool_name = tool_call.get("name", "unknown")
-                             logger.debug(f"Agent calling tool: {tool_name}")
-                             # Emit tool usage event
-                             yield _format_sse(f"Using tool {tool_name}...", event="tool_use")
+        # Manual iteration to support heartbeat
+        iterator = _graph.astream(inputs, config=config, stream_mode="updates")
+        
+        # Helper to get next chunk
+        async def get_next_chunk():
+             try:
+                 return await iterator.__anext__()
+             except StopAsyncIteration:
+                 return None
 
-                    content = last_message.content
-                    if content:
-                         yield _format_sse(content, event="message")
+        import random
+        thinking_messages = [
+            "Consulting the archives...",
+            "Synthesizing genetic data...",
+            "Checking the multiverse...",
+            "Running quantum simulations...",
+            "Asking the Oracle...",
+            "Formatting response..."
+        ]
+
+        next_task = asyncio.create_task(get_next_chunk())
+        
+        while True:
+            done, pending = await asyncio.wait([next_task], timeout=3.0)
+
+            if next_task in done:
+                # Task completed
+                event = next_task.result()
+                if event is None:
+                    break
+                
+                # Process Event
+                for node_name, node_output in event.items():
+                    if "messages" in node_output:
+                        last_message = node_output["messages"][-1]
+                        
+                        # Check for tool_calls (AIMessage)
+                        if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+                                for tool_call in last_message.tool_calls:
+                                    tool_name = tool_call.get("name", "unknown")
+                                    logger.debug(f"Agent calling tool: {tool_name}")
+                                    yield _format_sse(f"Using tool {tool_name}...", event="tool_use")
+
+                        content = last_message.content
+                        if content:
+                                yield _format_sse(content, event="message")
+                
+                # Start waiting for next chunk
+                next_task = asyncio.create_task(get_next_chunk())
+            
+            else:
+                # Timeout / Still Pending -> Heartbeat
+                msg = random.choice(thinking_messages)
+                yield _format_sse(msg, event="tool_use")
+                # Loop back to wait for the SAME next_task
 
     except Exception as e:
         logger.error(f"Error calling agent: {e}", exc_info=True)
