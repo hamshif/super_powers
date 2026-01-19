@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     tar \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Setup Environment
@@ -28,6 +29,11 @@ ENV PATH="${JAVA_HOME}/bin:${PATH}"
 # 3. Copy Project
 # We expect the build context to be the project root
 COPY . /app
+
+# 3.1. Unpack Data (if provided via zip)
+# We copy data.zip (prepared by build script) and unzip it
+COPY data.zip /app/data.zip
+RUN unzip /app/data.zip -d /app && rm /app/data.zip
 
 # 4. Install Project & Dependencies
 # We use the existing installer script which handles Spark download and pip install

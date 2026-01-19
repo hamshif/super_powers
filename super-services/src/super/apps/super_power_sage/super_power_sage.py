@@ -12,7 +12,8 @@ from typing import AsyncGenerator
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver 
@@ -102,6 +103,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/")
+async def get_chat_interface():
+    from pathlib import Path
+    static_file = Path(__file__).parent / "static" / "chat.html"
+    if not static_file.exists():
+        return {"error": "Chat interface not found"}
+    return FileResponse(static_file)
 
 
 def _format_sse(data: str, event: str | None = None) -> str:

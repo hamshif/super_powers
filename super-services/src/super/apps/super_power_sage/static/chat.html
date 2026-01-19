@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Power Sage</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f0f2f5;
+        }
+
+        #chat-container {
+            height: 70vh;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .message {
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .user {
+            color: #007bff;
+            font-weight: bold;
+            text-align: right;
+        }
+
+        .assistant {
+            color: #333;
+        }
+
+        .tool {
+            color: #888;
+            font-style: italic;
+            font-size: 0.9em;
+            margin-bottom: 4px;
+        }
+
+        #input-area {
+            display: flex;
+            gap: 10px;
+        }
+
+        #prompt {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        button:disabled {
+            background: #ccc;
+        }
+
+        .typing {
+            color: #888;
+            font-style: italic;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🦸 Super Power Sage</h1>
+    <div id="chat-container"></div>
+    <div id="input-area">
+        <input type="text" id="prompt" placeholder="Ask about heroes, genes, or define a new power..."
+            autocomplete="off">
+        <button onclick="sendMessage()" id="sendBtn">Send</button>
+    </div>
+
+    <script>
+        const chat = document.getElementById('chat-container');
+        const promptInput = document.getElementById('prompt');
+        const sendBtn = document.getElementById('sendBtn');
+        let currentAssistantDiv = null;
+
+        promptInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        async function sendMessage() {
+            const text = promptInput.value.trim();
+            if (!text) return;
+
+            // User Message
+            appendMessage('user', text);
+            promptInput.value = '';
+            setLoading(true);
+
+            // Assistant Placeholder
+            currentAssistantDiv = document.createElement('div');
+            currentAssistantDiv.className = 'message assistant';
+            chat.appendChild(currentAssistantDiv);
+            scrollToBottom();
+
+            try {
+                const response = await fetch('/super_powers_sage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: text, session_id: "default" })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    let eventType = null;
+
+                    for (const line of lines) {
+                        if (line.startsWith('event: ')) {
+                            eventType = line.substring(7).trim();
+                        } else if (line.startsWith('data: ')) {
+                            const data = line.substring(6);
+                            handleEvent(eventType, data);
+                        }
+                    }
+                }
+            } catch (e) {
+                currentAssistantDiv.textContent += ` [Error: ${e.message}]`;
+            } finally {
+                setLoading(false);
+                currentAssistantDiv = null;
+            }
+        }
+
+        function handleEvent(type, data) {
+            scrollToBottom();
+            if (type === 'message') {
+                currentAssistantDiv.innerHTML = marked.parse(currentAssistantDiv.innerText + data);
+                // Simple append for now, markdown parsing would require a lib like marked.js
+                // Let's just append text safely
+                // Actually, let's just append text node to avoid XSS if we aren't using a sanitizer
+                // But for a simple test tool, textContent append is safest.
+                // Re-implementation for streaming append:
+                // We are just appending raw text here.
+                // currentAssistantDiv.textContent += data; 
+                // Wait, markdown is nice. Let's include marked.js from CDN for better UX.
+            } else if (type === 'tool_use') {
+                const toolDiv = document.createElement('div');
+                toolDiv.className = 'message tool';
+                toolDiv.textContent = `⚙️ ${data}`;
+                chat.insertBefore(toolDiv, currentAssistantDiv);
+            }
+        }
+
+        // Quick override to handle "streaming" markdown better? 
+        // For this simple version, let's stick to text appending for the cumulative message object
+        // but since we receive chunks, simple textContent += is robust.
+        // We will just replace handleEvent to be simpler.
+    </script>
+
+    <!-- Redefine script logic for robustness without external deps first -->
+    <script>
+        // Overwriting handleEvent for pure text to ensure it works offline/in-docker without internet
+        function handleEvent(type, data) {
+            scrollToBottom();
+            if (type === 'message') {
+                // Append text direct
+                // Note: data might be a fragment. 
+                // We treat it as raw text.
+                currentAssistantDiv.innerText += data;
+                // Ideally we'd replace the whole innerHTML with markdown(full_text) but we don't track full text separately yet.
+            } else if (type === 'tool_use') {
+                // Create tool notification above current answer
+                const toolDiv = document.createElement('div');
+                toolDiv.className = 'message tool';
+                toolDiv.textContent = `⚙️ ${data}`;
+                // Insert before the currently growing assistant message
+                chat.insertBefore(toolDiv, currentAssistantDiv);
+            }
+        }
+
+        function appendMessage(role, text) {
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            div.textContent = text;
+            chat.appendChild(div);
+            scrollToBottom();
+        }
+
+        function setLoading(isLoading) {
+            sendBtn.disabled = isLoading;
+            promptInput.disabled = isLoading;
+        }
+
+        function scrollToBottom() {
+            chat.scrollTop = chat.scrollHeight;
+        }
+    </script>
+</body>
+
+</html>
