@@ -54,13 +54,25 @@ def etl_single_hero(hero_name: str, ontology: str = "generated") -> None:
     # They are named like {safe_name}.json, {safe_name}_1.json, etc.
     genome_dir = stage_root / "hero_genomes" / ontology
     
+    import time
+    
     gene_files = []
     # Identify all files for this hero
     # Pattern: safe_name.json OR safe_name_N.json
-    if genome_dir.exists():
-        for f in genome_dir.iterdir():
-            if f.name == f"{safe_name}.json" or f.name.startswith(f"{safe_name}_"):
-                gene_files.append(f)
+    # Retry Loop for Eventual Consistency (Docker volumes/IO lag)
+    max_retries = 5
+    for attempt in range(max_retries):
+        if genome_dir.exists():
+            for f in genome_dir.iterdir():
+                if f.name == f"{safe_name}.json" or f.name.startswith(f"{safe_name}_"):
+                    gene_files.append(f)
+        
+        if gene_files:
+            break
+            
+        if attempt < max_retries - 1:
+            logger.info(f"Waiting for gene files for {hero_name} (Attempt {attempt+1}/{max_retries})...")
+            time.sleep(0.5)
                 
     if gene_files:
         logger.info(f"Found {len(gene_files)} gene files for {hero_name}")
