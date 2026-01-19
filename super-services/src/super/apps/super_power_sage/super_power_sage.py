@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 from super.apps.super_power_sage.agent import SageGraphFactory
 from super.config import get_app_conf
+from super.core import utils
 
 # Configure a logger for this module
 logger = logging.getLogger(__name__)
@@ -70,16 +71,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _apply_log_level(level)
     logger.info("Super Power Sage starting up...")
 
-    # Initialize Agent
-    api_key = os.getenv("OMGENE_OPEN_AI_API_KEY")
-    if not api_key:
-        logger.warning("OMGENE_OPEN_AI_API_KEY not found! Agent will fail if called.")
-    
-    # Checkpointer for persistence
+    # Init Agent
+    # Uses robust initialization with active rate-limit check and fallback
+    try:
+        model = utils.get_valid_llm(model_name="gpt-3.5-turbo")
+    except RuntimeError as e:
+        logger.error(f"Failed to initialize Agent Model: {e}")
+        # Build a dummy model or re-raise depending on strictness. 
+        # For now, let's re-raise to fail fast if no key works.
+        raise e
     checkpointer = MemorySaver()
 
     # Dependency Injection: Inject OpenAI model
-    model = ChatOpenAI(api_key=api_key, model="gpt-3.5-turbo")
     _graph = SageGraphFactory.create_graph(model, checkpointer=checkpointer)
     logger.info("Agent graph initialized with persistence.")
     

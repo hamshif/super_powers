@@ -18,7 +18,8 @@ from super.apps.super_power_sage.tools import (
     get_hero_details, 
     search_heroes, 
     get_connected_entities, 
-    find_heroes_by_ability
+    find_heroes_by_ability,
+    create_new_hero
 )
 
 
@@ -62,7 +63,7 @@ class SageGraphFactory:
         """
         
         # --- Tools Setup ---
-        tools = [get_hero_details, search_heroes, get_connected_entities, find_heroes_by_ability]
+        tools = [get_hero_details, search_heroes, get_connected_entities, find_heroes_by_ability, create_new_hero]
         model_with_tools = model.bind_tools(tools)
 
         # --- Node Definitions ---

@@ -8,6 +8,14 @@ from langchain_core.tools import tool
 
 from super.core.warehouse import get_hero_data, get_all_heroes_data
 from super.core.graph import GraphManager
+from super.core.utils import get_stage_root, get_app_conf
+from super.apps.generate_powers.models_hero import HeroProfile
+from super.apps.generate_powers import generate_heroes
+from super.apps.etl import flatten_heroes
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+import asyncio
+from pathlib import Path
 
 # Global GraphManager instance to avoid reloading on every call
 _gm = None
@@ -23,6 +31,17 @@ def _get_warehouse_root() -> str:
     if env_root and os.path.exists(env_root):
         _warehouse_root = env_root
         return env_root
+
+    # Use System Standard Stage Root
+    try:
+        from super.core.utils import get_stage_root
+        stage_root = get_stage_root()
+        warehouse_path = stage_root / "warehouse"
+        if warehouse_path.exists():
+             _warehouse_root = str(warehouse_path)
+             return _warehouse_root
+    except ImportError:
+        pass
 
     # Try relative from current working directory (assuming we are in project root or subfolder)
     # Common cases:
@@ -101,9 +120,9 @@ def search_heroes(query: str) -> List[Dict[str, Any]]:
         names = df['hero_name'].tolist()
         fuzzy_matches = process.extract(query, names, limit=10, scorer=fuzz.partial_ratio)
         
-        # Filter by score threshold (e.g., > 70)
+        # Filter by score threshold (e.g., > 90) to avoid noise (like Olórin vs Robin)
         # fuzzy_matches is list of (name, score)
-        matched_names = [name for name, score in fuzzy_matches if score > 70]
+        matched_names = [name for name, score in fuzzy_matches if score > 90]
         
         if matched_names:
              # Filter dataframe by these names
@@ -112,6 +131,46 @@ def search_heroes(query: str) -> List[Dict[str, Any]]:
     except ImportError:
         pass
         
+    # Fallback to Smart Search (LLM Alias Expansion)
+    # Only if we found nothing so far
+    try:
+        if len(query.split()) > 0: # Avoid empty semantic search
+            print(f"DEBUG: Smart searching for '{query}'...")
+            
+            # API Key Fallback with active check
+            from super.core import utils
+            llm = utils.get_valid_llm(model_name="gpt-4o", temperature=0)
+            
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", "You are a superhero expert. Given a search query, list up to 3 alternative names, aliases, or real names for the character. Return ONLY a comma-separated list of names. If unknown, return nothing."),
+                ("human", "{query}")
+            ])
+            
+            chain = prompt | llm
+            response = chain.invoke({"query": query})
+            aliases = [a.strip() for a in response.content.split(",") if a.strip()]
+            
+            print(f"DEBUG: LLM suggested aliases: {aliases}")
+            
+            if aliases:
+                # Search for each alias
+                # We reuse the dataframe logic
+                # We can construct a combined regex mask
+                # escape regex chars just in case
+                import re
+                combined_query = "|".join([re.escape(a) for a in aliases])
+                mask = (
+                    df['hero_name'].str.contains(combined_query, case=False, na=False) | 
+                    df['bio'].str.contains(combined_query, case=False, na=False)
+                )
+                smart_result = df[mask]
+                if not smart_result.empty:
+                    return smart_result.head(10).to_dict(orient='records')
+
+    except Exception as e:
+        print(f"Smart search failed: {e}")
+        pass
+
     return []
 
 @tool
@@ -150,22 +209,105 @@ def get_connected_entities(entity_name: str, depth: int = 1) -> Dict[str, Any]:
     }
 
 @tool
-def find_heroes_by_ability(ability_keyword: str) -> List[str]:
+def find_heroes_by_ability(ability: str) -> List[Dict[str, Any]]:
     """
-    Find heroes who have a specific ability or keyword in their bio (e.g., "fly", "strength").
+    Find heroes who possess a specific ability or power.
     
     Args:
-        ability_keyword: The keyword to search for (e.g., "fly").
+        ability: The ability or power to search for (e.g., "flight", "regeneration").
     """
-    gm = _get_gm()
+    # For now, we reuse the robust search logic which covers bio and name, 
+    # and effectively searches for abilities mentioned in the bio.
+    # In a more advanced version, this would search the 'hero_genes' table specifically.
     
-    heroes = []
-    keyword = ability_keyword.lower()
+    # Let's search hero_genes first if possible, or just default to semantic search on profiles
+    # since bio usually contains the powers.
+    return search_heroes.invoke({"query": ability})
+
+@tool
+async def create_new_hero(
+    hero_name: str, 
+    bio: str, 
+    primary_seed_name: str = "Super Strength", 
+    side_effects: List[str] = [], 
+    estimated_connectivity: str = "Low"
+) -> str:
+    """
+    Creates a new hero from scratch! This will generate their DNA, Powers, and add them to the warehouse.
     
-    for n, data in gm.G.nodes(data=True):
-        if data.get('type') == 'Hero':
-            bio = data.get('bio', '').lower()
-            if keyword in bio:
-                heroes.append(n)
-                
-    return heroes
+    Args:
+        hero_name: The name of the new hero.
+        bio: A short description of the hero.
+        primary_seed_name: The main power source/seed (e.g., "Super Strength", "Flight", "Speed", "Magic", "Telepathy").
+        side_effects: List of potential side effects (e.g., "Hubris", "Mutation").
+        estimated_connectivity: Complexity of the hero ("Low" or "High").
+    """
+    try:
+        # 1. Setup Context
+        stage_root = get_stage_root()
+        ontology = "generated"
+        safe_name = hero_name.replace(" ", "_").replace("'", "")
+        
+        # Ensure directories
+        profile_dir = stage_root / "hero_profiles" / ontology
+        profile_dir.mkdir(parents=True, exist_ok=True)
+        genome_dir = stage_root / "hero_genomes" / ontology
+        genome_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 2. Create Profile
+        profile = HeroProfile(
+            hero_name=hero_name,
+            ontology=ontology,
+            primary_seed_name=primary_seed_name,
+            secondary_seed_names=[], # Simplifying for tool interaction
+            side_effect_names=side_effects,
+            bio=bio,
+            estimated_connectivity=estimated_connectivity
+        )
+        
+        # Save Profile
+        profile_path = profile_dir / f"{safe_name}.json"
+        with open(profile_path, "w") as f:
+            f.write(profile.model_dump_json(indent=2))
+            
+        print(f"Created profile for {hero_name} at {profile_path}")
+        
+        # 3. Generate Genome (Invoke generate_heroes logic)
+        # We need to load the config/seeds similar to generate_heroes.main()
+        conf_gen = get_app_conf(app="generate_powers")
+        seeds = conf_gen.get_list("generate_powers.library.seeds")
+        effects = conf_gen.get_list("generate_powers.library.side_effects")
+        seed_map = {s['name']: s for s in seeds}
+        effect_map = {e['name']: e for e in effects}
+        
+        system_prompt = conf_gen.get_string("generate_genome.system_prompt")
+        
+        # Init Model (Robust)
+        from super.core import utils
+        model = utils.get_valid_llm(model_name="gpt-4o", temperature=0.8)
+        semaphore = asyncio.Semaphore(1) # Single task
+        
+        # Run Generation
+        await generate_heroes.process_hero(
+            profile=profile,
+            model=model,
+            system_prompt=system_prompt,
+            seed_map=seed_map,
+            effect_map=effect_map,
+            semaphore=semaphore,
+            output_dir=genome_dir
+        )
+            
+        # 4. ETL
+        # ETL is synchronous and blocking. In a real async app, we should offload this to a thread.
+        # loop = asyncio.get_running_loop()
+        # await loop.run_in_executor(None, flatten_heroes.main)
+        # For simplicity/safety with Spark context, checking if we can just call it.
+        # Spark operations often block.
+        flatten_heroes.main()
+        
+        return f"Success! Hero {hero_name} has been created, generated, and added to the warehouse."
+        
+    except Exception as e:
+        import traceback
+        return f"Failed to create hero: {e} \n{traceback.format_exc()}"

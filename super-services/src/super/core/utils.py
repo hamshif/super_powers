@@ -7,6 +7,10 @@ from typing import Any, Final
 from typing import cast
 
 from pyhocon import ConfigFactory, ConfigTree
+from langchain_openai import ChatOpenAI
+import logging
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_APP: Final[str | None] = None
 TypedConfig = Any
@@ -165,4 +169,45 @@ def get_stage_root() -> Path:
     return Path(conf.get_string("stage_root"))
 
 
-__all__ = ["DEFAULT_APP", "get_app_conf", "get_project_conf", "get_stage_root"]
+def get_valid_llm(model_name: str = "gpt-4o", temperature: float = 0.7) -> ChatOpenAI:
+    """
+    Initialize ChatOpenAI with active API key validation.
+    Checks OMGENE_OPEN_AI_API_KEY first, then OPENAI_API_KEY.
+    If the primary key fails (e.g. Rate Limit), falls back to secondary with a warning.
+    """
+    candidates = [
+        ("OMGENE_OPEN_AI_API_KEY", os.getenv("OMGENE_OPEN_AI_API_KEY")),
+        ("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
+    ]
+    
+    # Filter empty keys
+    candidates = [(name, key) for name, key in candidates if key]
+    
+    if not candidates:
+        raise ValueError("No API Keys found (OMGENE... or OPENAI...)")
+        
+    errors = []
+    
+    for name, key in candidates:
+        try:
+            # Test the key with a lightweight call
+            # We use a cheaper model for the ping check if possible, or just the target model.
+            # Using the target model ensures the key has access to it.
+            test_model = ChatOpenAI(api_key=key, model=model_name, temperature=temperature, max_retries=1)
+            # Invoke a tiny prompt. Note: This costs tokens.
+            # Ideally we check model validity without generation if possible, but 'invoke' is the surest test.
+            test_model.invoke("test")
+            
+            logger.info(f"Successfully initialized LLM using {name}")
+            return test_model
+            
+        except Exception as e:
+            msg = f"API Key {name} failed: {str(e)}"
+            logger.warning(msg)
+            errors.append(msg)
+            
+    # If we get here, all failed
+    raise RuntimeError(f"All API keys failed to initialize LLM: {errors}")
+
+
+__all__ = ["DEFAULT_APP", "get_app_conf", "get_project_conf", "get_stage_root", "get_valid_llm"]
