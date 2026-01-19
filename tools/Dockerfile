@@ -1,34 +1,34 @@
 
-# Base Image: Ubuntu 22.04 LTS
-FROM ubuntu:22.04
+# Base Image: Python 3.11 (Debian Bookworm)
+# Ubuntu 22.04 only has Python 3.10, but we need 3.11+ for some deps (e.g. networkx>=3.5)
+FROM python:3.11-slim
 
-# Avoid interactive prompts during apt install
-ARG DEBIAN_FRONTEND=noninteractive
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
 
 # 1. System Dependencies
-# - python3, pip, venv: Core Python
-# - openjdk-17-jdk: Required for Spark 4.0
-# - git, curl, tar: Utilities
-# - build-essential: For compiling python libs if needed
+# - Fix for slim images: Create man directory
+RUN mkdir -p /usr/share/man/man1
+
+# - default-jdk: Points to stable Java (17 on Bookworm)
+# - git, curl, unzip, tar: utilities
+# - build-essential: for compiling wheels if needed
 RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
-    python-is-python3 \
-    openjdk-17-jdk \
+    default-jdk \
     git \
     curl \
-    tar \
     unzip \
+    tar \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Setup Environment
+# 2. Environment
 WORKDIR /app
+# Standard path for OpenJDK 17 on Debian
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # 3. Copy Project
-# We expect the build context to be the project root
 COPY . /app
 
 # 3.1. Unpack Data (if provided via zip)
@@ -40,8 +40,11 @@ RUN unzip /app/data.zip -d /app && rm /app/data.zip
 # We use the existing installer script which handles Spark download and pip install
 # We force HOME to /root so it installs Spark to /root/opt
 ENV HOME=/root
+
 # Upgrade build tools to support PEP 660 (editable installs)
 RUN python -m pip install --upgrade pip setuptools wheel
+
+# Install
 RUN bash package_py.sh
 
 # 5. Setup Runtime
