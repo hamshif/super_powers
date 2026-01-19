@@ -162,8 +162,6 @@ async def generate_single_gene(
                         data_dict.update(metadata)
                     f.write(json.dumps(data_dict, indent=2))
                     
-                    f.write(json.dumps(data_dict, indent=2))
-                    
                 logger.info(f"  [Generated] {final_id} -> {output_file.name}")
                 return # Done
                 

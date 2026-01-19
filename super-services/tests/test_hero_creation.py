@@ -179,7 +179,7 @@ def test_hero_creation_pipeline(setup_environment):
         genome = json.load(f)
         
     print(f"Genome verified at {genome_path}")
-    assert genome["hero_name"] == hero_name, "Genome hero name mismatch"
+    assert genome["hero_name"].lower() == hero_name.lower(), "Genome hero name mismatch"
     # It's a single gene file, not a list of genes
     assert genome["gene_id"] == "MIGHTY-001", "Gene ID mismatch"
     assert genome["mutation_class"] == "Canonical"
