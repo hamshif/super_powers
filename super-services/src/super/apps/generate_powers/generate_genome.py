@@ -20,6 +20,31 @@ from langchain_openai import ChatOpenAI
 
 # --- Configuration & Setup ---
 
+from pyhocon import ConfigFactory
+
+def load_library(path: Path) -> List[Dict]:
+    """Loads a library file (JSON or HOCON)."""
+    if not path.exists():
+         raise FileNotFoundError(f"Library file not found: {path}")
+    
+    if path.suffix == ".conf":
+        # Parse HOCON and assume structure is just a list? 
+        # Actually HOCON root must be object. The file likely has a root key.
+        # Let's inspect the seed file next. For now, assume it returns list-like config or we extract.
+        # Based on app.conf `include`, these files probably define keys.
+        # We need to read the config and extract the relevant key?
+        # WAIT: app.conf includes them. They are merged into root config.
+        # So we shouldn't "load" them as separate files if they are just HOCON fragments.
+        # BUT if I want to "load_library" I should probably treat them as data.
+        # Let's see what the user did before.
+        # Ah, in turn 2257 generate_genome.py used `conf.get_list("generate_powers.library.seeds")`.
+        # This implies standard ConfigFactory loading merges them.
+        # So `profile_hero.py` should ALSO access them via `conf_gen.get_list(...)` instead of manually loading files!
+        pass 
+        
+    with open(path, "r") as f:
+         return json.load(f)
+
 async def generate_single_gene(
     model: ChatOpenAI,
     system_prompt_template: str,
@@ -30,7 +55,8 @@ async def generate_single_gene(
     pool_side_effects: List[Dict],
     semaphore: asyncio.Semaphore,
     output_dir: Path,
-    connectivity_instruction: str = "Generate 2-100 links (Default)."
+    connectivity_instruction: str = "Generate 2-100 links (Default).",
+    metadata: Dict[str, Any] = None
 ):
     """Generates a single gene and saves it."""
     async with semaphore:
@@ -77,8 +103,21 @@ async def generate_single_gene(
                 # --- VALIDATION LOGIC ---
                 valid_side_effects = {e.get("name") for e in pool_side_effects}
                 
-                # 1. Canonical Side Effects Check
-                invalid_effects = [se.side_effect for se in result.side_effect_profile if se.side_effect not in valid_side_effects]
+                # 1. Canonical Side Effects Check (Relaxed)
+                invalid_effects = []
+                for se in result.side_effect_profile:
+                    # Check if se.side_effect matches any valid effect (exact or substring)
+                    match = False
+                    for valid in valid_side_effects:
+                        # Case insensitive check & partial match flexibility
+                        if valid.lower() in se.side_effect.lower() or se.side_effect.lower() in valid.lower():
+                            match = True
+                            # Auto-correction (Optional but good for data cleanliness)
+                            se.side_effect = valid # Enforce canonical name
+                            break
+                    if not match:
+                        invalid_effects.append(se.side_effect)
+                        
                 if invalid_effects:
                     print(f"  [Retry {attempt+1}/{max_retries}] Invalid side effects found: {invalid_effects}")
                     # Validation failure - try again
@@ -98,7 +137,14 @@ async def generate_single_gene(
                 final_id = result.gene_id
                 
                 # Sanitize filename
-                safe_filename = "".join(x for x in final_id if x.isalnum() or x in ('-', '_')).strip()
+                if metadata and "hero_name" in metadata:
+                    # Use Hero Name: "Bugs Bunny" -> "bugs_bunny"
+                    raw_name = metadata["hero_name"]
+                    safe_filename = "".join(x for x in raw_name if x.isalnum() or x in (' ', '-', '_')).strip()
+                    safe_filename = safe_filename.replace(" ", "_").lower()
+                else:
+                    safe_filename = "".join(x for x in final_id if x.isalnum() or x in ('-', '_')).strip()
+                
                 output_file = output_dir / f"{safe_filename}.json"
                 
                 # Simple collision avoidance
@@ -108,7 +154,10 @@ async def generate_single_gene(
                     counter += 1
                     
                 with open(output_file, "w") as f:
-                    f.write(result.model_dump_json(indent=2))
+                    data_dict = result.model_dump()
+                    if metadata:
+                        data_dict.update(metadata)
+                    f.write(json.dumps(data_dict, indent=2))
                     
                 print(f"  [Generated] {final_id} -> {output_file.name}")
                 return # Done

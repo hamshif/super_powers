@@ -157,4 +157,12 @@ def get_app_conf(
     return merged.resolve(merged)
 
     return merged.resolve(merged)
-__all__ = ["DEFAULT_APP", "get_app_conf", "get_project_conf"]
+
+
+def get_stage_root() -> Path:
+    """Helper to get the configured stage root directory."""
+    conf = get_project_conf(resolve=True)
+    return Path(conf.get_string("stage_root"))
+
+
+__all__ = ["DEFAULT_APP", "get_app_conf", "get_project_conf", "get_stage_root"]
