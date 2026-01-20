@@ -285,7 +285,35 @@ class GraphManager:
             elif ntype == 'Seed': node['color'] = '#ffff99' # Yellow
             elif ntype == 'SideEffect': node['color'] = '#ffcc99' # Orange
             
-        net.show_buttons(filter_=['physics'])
+            
+            
+        # Apply user-requested defaults to reduce pulsating
+        # We include "configure" here because set_options overrides previous settings
+        options = """
+        {
+          "configure": {
+            "enabled": true,
+            "filter": ["physics"]
+          },
+          "physics": {
+            "barnesHut": {
+              "theta": 0.15,
+              "gravitationalConstant": -3350,
+              "centralGravity": 0.3,
+              "springLength": 95,
+              "springConstant": 0.04,
+              "damping": 0.09,
+              "avoidOverlap": 0
+            },
+            "maxVelocity": 36,
+            "minVelocity": 0.07,
+            "solver": "barnesHut",
+            "timestep": 0.5,
+            "wind": { "x": 0, "y": 0 }
+          }
+        }
+        """
+        net.set_options(options)
         
         # Helper to inject custom layout CSS into the PyVis HTML
         def _inject_layout_css(html_str):
