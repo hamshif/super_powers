@@ -494,10 +494,59 @@ button:disabled {
   width: 100%;
   height: 100%;
   border: none;
-  background: transparent; /* Changed from white for GraphViewer */
+  background: transparent;
+  /* Changed from white for GraphViewer */
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* === Vis.js Control Panel Overrides (Cyber Dark) === */
+.vis-configuration-wrapper {
+  background: var(--glass-surface) !important;
+  color: var(--text-primary) !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  padding: 15px !important;
+  border-top: 1px solid var(--cyber-cyan) !important;
+}
+
+.vis-configuration-wrapper .vis-config-item {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  padding: 8px 0 !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.vis-configuration-wrapper .vis-config-label {
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  font-weight: 500 !important;
+  min-width: 140px !important;
+}
+
+/* Range Inputs */
+.vis-configuration-wrapper .vis-config-range {
+  background: transparent !important;
+}
+
+.vis-configuration-wrapper input[type="range"] {
+  accent-color: var(--cyber-cyan) !important;
+  cursor: pointer;
+}
+
+.vis-configuration-wrapper input[type="text"],
+.vis-configuration-wrapper input[type="number"] {
+  background: var(--bg-dark) !important;
+  color: var(--cyber-cyan) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+}
+
+/* Checkboxes */
+.vis-configuration-wrapper input[type="checkbox"] {
+  accent-color: var(--cyber-cyan) !important;
 }
 
 /* Add a class to the body/root to handle layout shift if needed, 
