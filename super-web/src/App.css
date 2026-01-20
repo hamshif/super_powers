@@ -506,7 +506,8 @@ button:disabled {
   background: var(--glass-surface) !important;
   color: var(--text-primary) !important;
   font-family: 'JetBrains Mono', monospace !important;
-  padding: 15px !important;
+  padding: 0px 15px !important;
+  /* Reduced top/bottom padding */
   border-top: 1px solid var(--cyber-cyan) !important;
 }
 

@@ -111,12 +111,13 @@ const GraphViewer = ({ center, onClose }) => {
                 ref={configRef}
                 className="vis-configuration-wrapper"
                 style={{
-                    flexBasis: '35vh',
-                    flexShrink: 0,
-                    background: 'rgba(20, 22, 30, 0.95)',
-                    borderTop: '1px solid rgba(0, 243, 255, 0.3)',
+                    height: '35vh',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    flex: 'none',
                     overflowY: 'auto',
-                    padding: '10px'
+                    userSelect: 'none',
+                    overscrollBehavior: 'contain'
                 }}
             />
         </div>
