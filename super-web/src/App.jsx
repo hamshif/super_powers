@@ -8,6 +8,11 @@ function App() {
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef(null)
 
+  // Graph UI State
+  const [showGraph, setShowGraph] = useState(false)
+  const [graphHistory, setGraphHistory] = useState([])
+  const [activeGraphCtx, setActiveGraphCtx] = useState(null) // null = Overview
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
@@ -92,6 +97,21 @@ function App() {
               try {
                 const dataObj = JSON.parse(payload)
                 lastMsg.sideData = [...(lastMsg.sideData || []), dataObj]
+
+                // === GRAPH TRIGGER ===
+                // If we get hero data, update the graph context!
+                const topic = dataObj.hero || dataObj.center
+                if (topic) {
+                  setGraphHistory(prev => {
+                    // Add to history if unique, keep last 5
+                    const exists = prev.find(i => i.token === topic)
+                    if (exists) return prev
+                    return [{ label: topic, token: topic }, ...prev].slice(0, 5)
+                  })
+                  setActiveGraphCtx(topic)
+                  setShowGraph(true) // Auto-open panel
+                }
+
               } catch (e) {
                 console.error("Failed to parse hero_data", e)
               }
@@ -144,63 +164,100 @@ function App() {
   }
 
   return (
-    <div className="chat-container">
-      <header>
-        {/* The Digital Seal Logo */}
-        <div className="logo-seal">印</div>
-        <h1>Super Power Sage</h1>
-      </header>
-
-      <div className="messages-list">
-        {messages.map((msg, idx) => (
-          <div key={idx} className={`message ${msg.role}`}>
-
-
-            {msg.role === 'assistant' && (msg.thoughts?.length > 0) && (
-              <details className="thought-process" open={idx === messages.length - 1 && msg.isThinking}>
-                <summary>Thought Process</summary>
-                <div className="thought-content">
-                  {msg.thoughts.map((t, i) => <div key={i}>{t}</div>)}
-                </div>
-              </details>
-            )}
-
-            {/* Side Channel Data (Hero/Graph) */}
-            {msg.sideData?.map((data, i) => (
-              <div key={i} className="hero-data-block">
-                <div className="hero-data-header">
-                  STATUS: RETRIEVED // {data.type?.toUpperCase()} // {data.hero || data.center?.toUpperCase()}
-                </div>
-                <pre className="hero-data-content">
-                  {JSON.stringify(data.payload || data, null, 2)}
-                </pre>
-              </div>
-            ))}
-
-            <div className="bubble">
-              <ReactMarkdown>{msg.content}</ReactMarkdown>
-            </div>
+    <div className={`app-layout ${showGraph ? 'split-view' : ''}`}>
+      <div className="chat-container">
+        <header>
+          {/* The Digital Seal Logo */}
+          <div className="logo-seal">印</div>
+          <h1>Super Power Sage</h1>
+          <div style={{ marginLeft: 'auto' }}>
+            <button
+              onClick={() => setShowGraph(!showGraph)}
+              style={{ padding: '5px 15px', fontSize: '0.8rem' }}
+            >
+              {showGraph ? 'Hide Graph' : 'Show Graph'}
+            </button>
           </div>
-        ))}
-        {loading && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
-          // Fallback if no assistant msg created yet
-          <div className="message assistant"><div className="bubble">...</div></div>
-        )}
-        <div ref={messagesEndRef} />
+        </header>
+
+        <div className="messages-list">
+          {messages.map((msg, idx) => (
+            <div key={idx} className={`message ${msg.role}`}>
+
+
+              {msg.role === 'assistant' && (msg.thoughts?.length > 0) && (
+                <details className="thought-process" open={idx === messages.length - 1 && msg.isThinking}>
+                  <summary>Thought Process</summary>
+                  <div className="thought-content">
+                    {msg.thoughts.map((t, i) => <div key={i}>{t}</div>)}
+                  </div>
+                </details>
+              )}
+
+              {/* Side Channel Data (Hero/Graph) */}
+              {msg.sideData?.map((data, i) => (
+                <div key={i} className="hero-data-block">
+                  <div className="hero-data-header">
+                    STATUS: RETRIEVED // {data.type?.toUpperCase()} // {data.hero || data.center?.toUpperCase()}
+                  </div>
+                  <pre className="hero-data-content">
+                    {JSON.stringify(data.payload || data, null, 2)}
+                  </pre>
+                </div>
+              ))}
+
+              <div className="bubble">
+                <ReactMarkdown>{msg.content}</ReactMarkdown>
+              </div>
+            </div>
+          ))}
+          {loading && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
+            // Fallback if no assistant msg created yet
+            <div className="message assistant"><div className="bubble">...</div></div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <form onSubmit={handleSubmit} className="input-area">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask about your super power..."
+            disabled={loading}
+          />
+          <button type="submit" disabled={loading}>
+            {loading ? 'SENDING' : 'SEND'}
+          </button>
+        </form>
       </div>
 
-      <form onSubmit={handleSubmit} className="input-area">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about your super power..."
-          disabled={loading}
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? 'SENDING' : 'SEND'}
-        </button>
-      </form>
+      {showGraph && (
+        <div className="graph-panel">
+          <div className="graph-header">
+            <h2>Knowledge Graph</h2>
+            <div className="graph-controls">
+              <select
+                value={activeGraphCtx || ""}
+                onChange={(e) => setActiveGraphCtx(e.target.value || null)}
+              >
+                <option value="">GLOBAL OVERVIEW</option>
+                {graphHistory.map((item, i) => (
+                  <option key={i} value={item.token}>
+                    {item.label.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <iframe
+            src={`/super_powers_sage/visualize_graph?center=${encodeURIComponent(activeGraphCtx || '')}`}
+            className="graph-frame"
+            title="Graph Visualization"
+          />
+        </div>
+      )}
+
     </div>
   )
 }

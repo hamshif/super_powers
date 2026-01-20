@@ -224,6 +224,43 @@ class GraphManager:
             
         return self.G.subgraph(nodes)
 
+    def get_overview_graph(self, limit=100):
+        """
+        Returns a simplified 'Overview' graph to avoid browser performance issues.
+        Includes:
+        1. All 'Seed' nodes (high-level ontologies).
+        2. Top connected 'Hero' and 'Power' nodes (up to limit).
+        """
+        # 1. Get all Seeds
+        seed_nodes = [n for n, d in self.G.nodes(data=True) if d.get('type') == 'Seed']
+        
+        # 2. Get high-degree nodes (connectedness)
+        # Calculate degree for all nodes
+        degrees = dict(self.G.degree())
+        
+        # Sort by degree descending
+        sorted_nodes = sorted(degrees, key=degrees.get, reverse=True)
+        
+        # Filter for interesting types (Hero, Power) to avoid clutter
+        # We assume Genes might be too granular for a high-level map, but high-degree genes (hubs) are okay.
+        # Let's verify type before adding if we want strict control, or just take top N.
+        # Let's take top N non-Seed nodes.
+        
+        top_nodes = []
+        count = 0
+        for n in sorted_nodes:
+            if n not in seed_nodes:
+                top_nodes.append(n)
+                count += 1
+                if count >= limit:
+                    break
+        
+        # Combine
+        final_nodes = set(seed_nodes + top_nodes)
+        
+        # Create Subgraph
+        return self.G.subgraph(final_nodes)
+
     def visualize(self, graph=None, filename=None):
         """
         Visualizes the graph using PyVis.
@@ -236,7 +273,7 @@ class GraphManager:
         if graph is None:
             graph = self.G
             
-        net = Network(height="750px", width="100%", notebook=True, cdn_resources='in_line')
+        net = Network(height="750px", width="100%", notebook=False, cdn_resources='in_line')
         net.from_nx(graph)
         
         # Color nodes by type
@@ -251,7 +288,7 @@ class GraphManager:
         net.show_buttons(filter_=['physics'])
         
         if filename:
-            net.show(filename)
+            net.save_graph(filename)
             return filename
         else:
             # Return HTML string for inline display

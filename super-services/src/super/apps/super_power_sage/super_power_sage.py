@@ -13,7 +13,7 @@ from typing import AsyncGenerator
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.responses import StreamingResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
@@ -27,6 +27,13 @@ from super.apps.super_power_sage import state
 
 # Configure a logger for this module
 logger = logging.getLogger(__name__)
+
+from pathlib import Path
+# Define project root early for use in endpoints
+# file is in .../src/super/apps/super_power_sage/super_power_sage.py
+# parents: [0]super_power_sage [1]apps [2]super [3]src [4]super-services [5]project_repo_root
+project_root = Path(__file__).parents[5]
+
 
 
 class HealthResponse(BaseModel):
@@ -251,6 +258,61 @@ def health() -> HealthResponse:
     return HealthResponse(status="ok")
 
 
+@app.get("/super_powers_sage/visualize_graph", response_class=HTMLResponse)
+async def visualize_graph(center: str | None = None):
+    """
+    Returns an HTML visualization of the graph.
+    If 'center' is provided, shows subgraph around that node.
+    If 'center' is None/Empty, shows the High-Level Overview.
+    """
+    try:
+        # Lazy import or get global GM if available. 
+        # Using tools._get_gm() pattern or re-instantiating.
+        # Ideally we share the instance. In server.py we can load it once. 
+        # But for now, let's instantiate to be safe and stateless or check global _graph's tools?
+        # To avoid overhead, let's use a cached global variable in this module if possible, 
+        # OR just instantiate since it reads parquet (via Pandas) which is cached by OS.
+        
+        # We need the warehouse path.
+        # Assuming defaults work in GraphManager logic (which we verified uses env or relative path).
+        from super.core.graph import GraphManager
+        
+        # Optimization: Instantiate once globally? 
+        # For this iteration, let's instantiate.
+        # If warehouse loading is slow (~1-2s), this endpoint might be slow on first hit.
+        
+        # Explicitly pass the warehouse path to ensure it works regardless of CWD
+        warehouse_path = project_root / "data/warehouse"
+        gm = GraphManager(warehouse_root=str(warehouse_path)) 
+        
+        if center and center.strip() and center.lower() != "overview":
+            # Contextual Subgraph
+            sub_G = gm.subgraph_for_hero(center, depth=2)
+            if not sub_G or sub_G.number_of_nodes() == 0:
+                # Fallback if hero not found (maybe it's a seed or power?)
+                # Try getting subgraph for any node ID
+                sub_G = gm.get_subgraph_for_node(center, depth=2) # Returns dict, visualize needs Graph
+                # Wait, get_subgraph_for_node returned serialization dict.
+                # Use subgraph logic directly:
+                if center in gm.G:
+                     # Create subgraph manually using nx
+                     # Re-use logic or just accept it might be empty
+                     nodes = {center} | set(gm.G.neighbors(center))
+                     sub_G = gm.G.subgraph(nodes)
+                else:
+                     return HTMLResponse(f"<h3>Node '{center}' not found in graph.</h3>")
+        else:
+            # Overview Mode
+            sub_G = gm.get_overview_graph(limit=150)
+            
+        html_content = gm.visualize(sub_G, filename=None)
+        return HTMLResponse(content=html_content, status_code=200)
+        
+    except Exception as e:
+        logger.error(f"Graph viz failed: {e}", exc_info=True)
+        return HTMLResponse(f"<h3>Error generating graph: {e}</h3>", status_code=500)
+
+
 @app.post("/super_powers_sage")
 async def super_powers_sage(request: ChatRequest) -> StreamingResponse:
     logger.debug("Received request: prompt=%s session=%s", request.prompt, request.session_id)
@@ -279,13 +341,9 @@ async def super_powers_sage(request: ChatRequest) -> StreamingResponse:
 # Mount the entire static directory to root to serve index.html and all public assets (e.g. images)
 # We place this AFTER API routes so they take precedence.
 # html=True means it serves index.html for root /.
-from pathlib import Path
-
 # Static file serving logic
 # 1. Try local dev build (super-web/dist) relative to project root
-# file is in .../src/super/apps/super_power_sage/super_power_sage.py
-# parents: [0]super_power_sage [1]apps [2]super [3]src [4]super-services [5]project_root
-project_root = Path(__file__).parents[5]
+
 dev_dist_dir = project_root / "super-web" / "dist"
 static_dir = Path(__file__).parent / "static"
 
