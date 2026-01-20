@@ -509,6 +509,12 @@ button:disabled {
   padding: 0px 15px !important;
   /* Reduced top/bottom padding */
   border-top: 1px solid var(--cyber-cyan) !important;
+
+  /* GRID LAYOUT */
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
+  column-gap: 20px;
+  align-content: start;
 }
 
 .vis-configuration-wrapper .vis-config-item {
@@ -527,6 +533,8 @@ button:disabled {
 }
 
 .vis-configuration-wrapper .vis-config-header {
+  grid-column: 1 / -1 !important;
+  /* Full width for headers */
   font-size: 16px !important;
   font-weight: bold !important;
   color: var(--text-primary) !important;
@@ -534,6 +542,7 @@ button:disabled {
   /* Reduced from default */
   margin-bottom: 5px !important;
   background: transparent !important;
+  border-bottom: 1px solid rgba(0, 243, 255, 0.1);
 }
 
 /* Remove margin from the very first element to hit the border tight */
