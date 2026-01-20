@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import './App.css'
+import GraphViewer from './components/GraphViewer'
 
 function App() {
   const [messages, setMessages] = useState([])
@@ -11,7 +12,7 @@ function App() {
   // Graph UI State
   const [showGraph, setShowGraph] = useState(true)
   const [graphHistory, setGraphHistory] = useState([])
-  const [activeGraphCtx, setActiveGraphCtx] = useState(null) // null = Overview
+  const [activeGraphCtx, setActiveGraphCtx] = useState("Bugs Bunny") // Default to Bugs Bunny
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -108,8 +109,12 @@ function App() {
                     if (exists) return prev
                     return [{ label: topic, token: topic }, ...prev].slice(0, 5)
                   })
-                  setActiveGraphCtx(topic)
-                  setShowGraph(true) // Auto-open panel
+
+                  // DEFER GRAPH LOAD to prevent UI stutter during chat stream
+                  setTimeout(() => {
+                    setActiveGraphCtx(topic)
+                    setShowGraph(true) // Auto-open panel
+                  }, 500)
                 }
 
               } catch (e) {
@@ -238,10 +243,10 @@ function App() {
             <h2>Knowledge Graph</h2>
             <div className="graph-controls">
               <select
-                value={activeGraphCtx || ""}
-                onChange={(e) => setActiveGraphCtx(e.target.value || null)}
+                value={activeGraphCtx || "overview"}
+                onChange={(e) => setActiveGraphCtx(e.target.value)}
               >
-                <option value="">GLOBAL OVERVIEW</option>
+                <option value="overview">GLOBAL OVERVIEW</option>
                 {graphHistory.map((item, i) => (
                   <option key={i} value={item.token}>
                     {item.label.toUpperCase()}
@@ -250,11 +255,10 @@ function App() {
               </select>
             </div>
           </div>
-          <iframe
-            src={`/super_powers_sage/visualize_graph?center=${encodeURIComponent(activeGraphCtx || '')}`}
-            className="graph-frame"
-            title="Graph Visualization"
-          />
+          {/* Replaced iframe with client-side GraphViewer (Offline Capable) */}
+          <div className="graph-frame" style={{ flex: 1, overflow: 'hidden' }}>
+            <GraphViewer center={activeGraphCtx} />
+          </div>
         </div>
       )}
 

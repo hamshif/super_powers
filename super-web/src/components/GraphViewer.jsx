@@ -1,0 +1,126 @@
+
+import React, { useEffect, useRef, useState } from 'react';
+import { Network } from 'vis-network';
+import 'vis-network/styles/vis-network.css';
+
+const GraphViewer = ({ center, onClose }) => {
+    const containerRef = useRef(null);
+    const configRef = useRef(null);
+    const networkRef = useRef(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    // MOCK DATA for Offline Layout Development
+    const MOCK_DATA = {
+        nodes: [
+            { id: 'Superman', label: 'Superman', title: 'Start Node', group: 'Hero', color: '#ff9999' },
+            { id: 'Flight', label: 'Flight', title: 'Power', group: 'Power', color: '#9999ff' },
+            { id: 'Strength', label: 'Super Strength', title: 'Power', group: 'Power', color: '#9999ff' },
+            { id: 'Krypton', label: 'Krypton', title: 'Planet', group: 'Seed', color: '#ffff99' },
+            { id: 'Gene-X', label: 'Gene-X', title: 'Gene', group: 'Gene', color: '#99ff99' }
+        ],
+        edges: [
+            { from: 'Superman', to: 'Flight' },
+            { from: 'Superman', to: 'Strength' },
+            { from: 'Superman', to: 'Krypton' },
+            { from: 'Strength', to: 'Gene-X' }
+        ]
+    };
+
+    // Default Options (Dark Mode + Physics)
+    const getOptions = (physicsEnabled, configContainer) => ({
+        autoResize: true,
+        height: '100%',
+        width: '100%',
+        clickToUse: false,
+        nodes: {
+            font: { color: '#e0e6ed', strokeWidth: 0, face: 'Inter' },
+            shape: 'dot',
+            size: 25
+        },
+        edges: {
+            color: { color: '#ffffff', opacity: 0.2 },
+            smooth: false
+        },
+        configure: {
+            enabled: true,
+            filter: ['physics'],
+            container: configContainer, // Render controls HERE
+            showButton: false
+        },
+        physics: {
+            enabled: physicsEnabled,
+            barnesHut: {
+                theta: 0.15,
+                gravitationalConstant: -3350,
+                centralGravity: 0.3,
+                springLength: 95,
+                springConstant: 0.04,
+                damping: 0.09,
+                avoidOverlap: 0
+            },
+            solver: 'barnesHut',
+            minVelocity: 0.07,
+            timestep: 0.5
+        }
+    });
+
+    useEffect(() => {
+        if (!containerRef.current || !configRef.current) return;
+
+        // Destroy previous network if exists
+        if (networkRef.current) {
+            try {
+                networkRef.current.destroy();
+            } catch (e) { console.warn("Cleanup error", e); }
+        }
+
+        // Clear config container to prevent duplicates (Strict Mode / Re-renders)
+        if (configRef.current) {
+            configRef.current.innerHTML = '';
+        }
+
+        // Always render with Mock Data immediately
+        const usePhysics = true;
+
+        // Create Network
+        networkRef.current = new Network(
+            containerRef.current,
+            MOCK_DATA,
+            getOptions(usePhysics, configRef.current)
+        );
+
+        return () => {
+            if (networkRef.current) networkRef.current.destroy();
+        };
+    }, []); // Run once on mount, ignore 'center' prop for now
+
+    return (
+        <div className="graph-viewer-layout" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+            {/* Graph Area */}
+            <div
+                ref={containerRef}
+                className="graph-canvas"
+                style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', outline: 'none' }}
+            >
+                {/* Network renders here */}
+            </div>
+
+            {/* Control Panel (Rendered by Vis into this div) */}
+            <div
+                ref={configRef}
+                className="vis-configuration-wrapper"
+                style={{
+                    flexBasis: '35vh',
+                    flexShrink: 0,
+                    background: 'rgba(20, 22, 30, 0.95)',
+                    borderTop: '1px solid rgba(0, 243, 255, 0.3)',
+                    overflowY: 'auto',
+                    padding: '10px'
+                }}
+            />
+        </div>
+    );
+};
+
+export default GraphViewer;
