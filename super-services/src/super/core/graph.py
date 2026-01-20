@@ -287,10 +287,57 @@ class GraphManager:
             
         net.show_buttons(filter_=['physics'])
         
+        # Helper to inject custom layout CSS into the PyVis HTML
+        def _inject_layout_css(html_str):
+            custom_style = """
+            <style>
+                html, body {
+                    height: 100vh;
+                    width: 100vw;
+                    margin: 0;
+                    padding: 0;
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                }
+                /* PyVis wraps the network in a .card div */
+                .card {
+                    width: 100% !important;
+                    height: 66vh !important;
+                    flex: none;
+                    border: none !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                #mynetwork {
+                    width: 100% !important;
+                    height: 100% !important;
+                    border: none !important;
+                }
+                /* The config div */
+                #config {
+                    width: 100% !important;
+                    height: 34vh !important;
+                    flex: none;
+                    overflow-y: auto;
+                    background: #f5f5f5;
+                    border-top: 2px solid #333;
+                    padding: 10px;
+                    box-sizing: border-box;
+                }
+            </style>
+            """
+            # Inject before </head>
+            return html_str.replace("</head>", f"{custom_style}</head>")
+
         if filename:
             net.save_graph(filename)
+            # If saving to file, we might want to also patch that file if this was a CLI usage,
+            # but for the web app we consume the string. 
+            # If the user wants to reproduce identical output locally, we should probably return layouted HTML here too?
+            # For now, let's just stick to the web-serving path which uses return string.
             return filename
         else:
             # Return HTML string for inline display
-            # net.generate_html() returns the HTML string
-            return net.generate_html()
+            raw_html = net.generate_html()
+            return _inject_layout_css(raw_html)
