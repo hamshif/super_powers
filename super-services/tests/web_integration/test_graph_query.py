@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 # Ensure src is on path
-root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../super-services/src"))
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src"))
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 

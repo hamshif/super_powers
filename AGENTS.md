@@ -1,5 +1,6 @@
-# Agent Guidelines
-
+# Agent Long Term Guidelines
+Adhere to these guidelines for all tasks. Compile these into long term lating intents and in all contexts and subagents.
+-
 ## 1. Version Control
 - **Commits**: Do not create git commits without explicit user permission.
 
@@ -12,8 +13,13 @@
 - **Questions**: When user asks questions answer them and stop to verify alignment before proceeding.
 - **Large Plans**: When formulating large plans, break them down into smaller tasks and verify alignment before proceeding. 
 
+# Python
+- **Running Python Code**: always use super pyenv to run python code, never add inline adding of source to path. top level package_py will install every dependency needed, by calling module level dependency package_py scripts. If your sandbox prohibits prolonged pyenv activation, use pyenv path variable before the command to set the path to the python interpreter.
+
 ## 4. File Organization
-- **Notebooks**: Unless otherwise specified, Jupyter notebooks should be placed in `super-explore/`. Never create `notebooks/` directories inside service modules (e.g., `super-services/`).
+- **Backends**: Backend related code in python should be placed in `super-services/`.
+- **Frontends**: Frontend related code in python should be placed in `super-web/`.
+- **Data and Notebooks**: Unless otherwise specified, Jupyter notebooks should be placed in `super-explore/`. Never create `notebooks/` directories inside service modules (e.g., `super-services/`).
 
 ## 5. Concurrency & Performance
 - **Thread & Process Safety**: Non-Blocking tools executed by agents must NOT block the main thread.
