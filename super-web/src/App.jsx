@@ -9,7 +9,7 @@ function App() {
   const messagesEndRef = useRef(null)
 
   // Graph UI State
-  const [showGraph, setShowGraph] = useState(false)
+  const [showGraph, setShowGraph] = useState(true)
   const [graphHistory, setGraphHistory] = useState([])
   const [activeGraphCtx, setActiveGraphCtx] = useState(null) // null = Overview
 

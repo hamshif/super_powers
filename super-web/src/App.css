@@ -347,11 +347,18 @@ button:disabled {
 
 /* Fix for Images overflowing */
 .bubble img {
-  max-width: 100%;
+  max-width: 20%;
   height: auto;
   border-radius: 8px;
   display: block;
-  margin: 10px 0;
+  float: left;
+  margin: 5px 15px 5px 0;
+}
+
+.bubble::after {
+  content: "";
+  display: table;
+  clear: both;
 }
 
 /* ... (keep your existing CSS) ... */
