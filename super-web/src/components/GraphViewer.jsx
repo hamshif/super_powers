@@ -90,7 +90,35 @@ const GraphViewer = ({ center, onClose }) => {
             getOptions(usePhysics, configRef.current)
         );
 
+        // --- LABEL FORMATTER (Separate Compound Words) ---
+        const formatLabels = () => {
+            if (!configRef.current) return;
+            const labels = configRef.current.querySelectorAll('.vis-config-label');
+            labels.forEach(label => {
+                if (label.dataset.formatted) return;
+
+                const original = label.innerText;
+                // gravitationalConstant -> Gravitational Constant
+                const formatted = original
+                    .replace(/([A-Z])/g, ' $1') // Space before capital
+                    .replace(/^./, str => str.toUpperCase()) // Capitalize first
+                    .trim();
+
+                if (original !== formatted) {
+                    label.innerText = formatted;
+                    label.dataset.formatted = "true";
+                }
+            });
+        };
+
+        const observer = new MutationObserver(() => formatLabels());
+        observer.observe(configRef.current, { childList: true, subtree: true });
+
+        // Initial run
+        formatLabels();
+
         return () => {
+            observer.disconnect();
             if (networkRef.current) networkRef.current.destroy();
         };
     }, []); // Run once on mount, ignore 'center' prop for now

@@ -512,8 +512,8 @@ button:disabled {
 
   /* GRID LAYOUT */
   display: grid !important;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
-  column-gap: 20px;
+  grid-template-columns: 1fr !important;
+  /* Force Single Column */
   align-content: start;
 }
 
@@ -529,7 +529,13 @@ button:disabled {
   background: transparent !important;
   color: var(--text-secondary) !important;
   font-weight: 500 !important;
+  /* Fixed width for alignment, allows wrapping */
   min-width: 140px !important;
+  width: 140px !important;
+  white-space: normal !important;
+  /* Wrap text */
+  word-wrap: break-word !important;
+  margin-right: 15px !important;
 }
 
 .vis-configuration-wrapper .vis-config-header {
