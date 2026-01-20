@@ -526,6 +526,29 @@ button:disabled {
   min-width: 140px !important;
 }
 
+.vis-configuration-wrapper .vis-config-header {
+  font-size: 16px !important;
+  font-weight: bold !important;
+  color: var(--text-primary) !important;
+  margin-top: 5px !important;
+  /* Reduced from default */
+  margin-bottom: 5px !important;
+  background: transparent !important;
+}
+
+/* Remove margin from the very first element to hit the border tight */
+.vis-configuration-wrapper>*:first-child {
+  margin-top: 0 !important;
+}
+
+/* Hide empty config items (like the s0 div) that cause spacing issues */
+.vis-configuration-wrapper .vis-config-item:empty {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
 /* Range Inputs */
 .vis-configuration-wrapper .vis-config-range {
   background: transparent !important;
