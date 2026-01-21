@@ -261,6 +261,12 @@ async def _chat_stream(prompt: str, session_id: str) -> AsyncGenerator[str, None
                     
                     # Also catching 'manage_context' updates or other node outputs if we want to show them as thought
                     if node_name == "manage_context":
+                         # Check for Focal Points
+                         if "focal_points" in node_update:
+                             fps = [fp.model_dump() for fp in node_update["focal_points"]]
+                             logger.debug(f"Emitting Metadata: {len(fps)} focal points")
+                             yield _format_sse(json.dumps({"focal_points": fps}), event=SseEventType.METADATA)
+
                          # We could show intent updates here if desired
                          yield _format_sse("Updating context & intents...", event=SseEventType.STREAM_OF_THOUGHT)
 

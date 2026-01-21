@@ -13,13 +13,13 @@ function App() {
   const [showGraph, setShowGraph] = useState(true)
   const [graphHistory, setGraphHistory] = useState([])
   const [activeGraphCtx, setActiveGraphCtx] = useState("default") // Default to "Default View"
+  const [focalPoints, setFocalPoints] = useState([]) // Graph Focal Points (Metadata)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
 
   useEffect(() => {
-
     scrollToBottom()
   }, [messages])
 
@@ -50,7 +50,6 @@ function App() {
 
       setMessages(prev => [...prev, { role: 'assistant', content: '', thoughts: [], isThinking: true }])
 
-      let received = false
       let buffer = ''
       while (true) {
         const { done, value } = await reader.read()
@@ -120,25 +119,30 @@ function App() {
               } catch (e) {
                 console.error("Failed to parse hero_data", e)
               }
+            } else if (eventType === 'metadata') {
+              // Handle Focal Points (Metadata)
+              try {
+                const metaObj = JSON.parse(payload)
+                if (metaObj.focal_points) {
+                  console.log("Updated Focal Points:", metaObj.focal_points);
+                  setFocalPoints(metaObj.focal_points)
+                }
+              } catch (e) { console.error("Failed to parse metadata", e) }
+
             } else if (eventType === 'answer' || eventType === 'message') {
               lastMsg.content += payload
               lastMsg.isThinking = false // Answer started
             }
 
-
             newMsgs[lastIndex] = lastMsg
             return newMsgs
           })
-
-          received = true
         }
       }
 
-
       buffer += decoder.decode()
       if (buffer.trim()) {
-        // ... (Cleanup buffer logic similar to loop, but simplified for brevity in this replace) ...
-        // For robustness, we'd replicate parsing, but usually end of stream is empty.
+        // simplified cleanup
       }
 
     } catch (err) {
@@ -258,7 +262,7 @@ function App() {
           </div>
           {/* Replaced iframe with client-side GraphViewer (Offline Capable) */}
           <div className="graph-frame" style={{ flex: 1, overflow: 'auto' }}>
-            <GraphViewer center={activeGraphCtx} />
+            <GraphViewer center={activeGraphCtx} focalPoints={focalPoints} />
           </div>
         </div>
       )}

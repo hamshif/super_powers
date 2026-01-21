@@ -13,7 +13,7 @@ from langgraph.graph import START, StateGraph, add_messages
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from super.apps.super_power_sage.models import UserIntent, IntentDecayRule, IntentUpdate
+from super.apps.super_power_sage.models import UserIntent, IntentDecayRule, IntentUpdate, GraphFocalPoint
 from super.apps.super_power_sage.tools import (
     get_hero_details, 
     search_heroes, 
@@ -38,6 +38,11 @@ def update_intents(current: List[UserIntent], new: List[UserIntent]) -> List[Use
     return new
 
 
+def update_focal_points(current: List[GraphFocalPoint], new: List[GraphFocalPoint]) -> List[GraphFocalPoint]:
+    """Replaces the focal points list with the new batch (which includes decayed survivors)."""
+    return new
+
+
 class AgentState(TypedDict):
     """
     The state of the agent as a TypedDict.
@@ -45,6 +50,7 @@ class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
     prompt_history: Annotated[List[str], update_history]
     intents: Annotated[List[UserIntent], update_intents]
+    focal_points: Annotated[List[GraphFocalPoint], update_focal_points]
 
 
 class SageGraphFactory:
@@ -75,6 +81,7 @@ class SageGraphFactory:
             """
             messages = state["messages"]
             current_intents = state.get("intents", [])
+            current_focal_points = state.get("focal_points", [])
             history = state.get("prompt_history", [])
             
             # 1. Get current prompt
@@ -104,8 +111,16 @@ class SageGraphFactory:
                 
                 non_decayed_intents.append(intent)
             
-            # 4. Intent Derivation (LLM)
-            # We ask the LLM: "Given history and new prompt, what are new intents? Are any old ones satisfied?"
+            # --- FOCAL POINTS DECAY ---
+            next_focal_points = []
+            for fp in current_focal_points:
+                fp.strength *= 0.5 # Halve strength each turn
+                fp.turns_active += 1
+                if fp.strength >= 0.1: # Threshold to keep
+                    next_focal_points.append(fp)
+            
+            # 4. Intent & Focal Point Derivation (LLM)
+            # We ask the LLM: "Given history and new prompt, what are new intents? Are any old ones satisfied? What are the FOCAL entities?"
             
             # Prepare extraction model
             extractor = model.with_structured_output(IntentUpdate)
@@ -119,8 +134,9 @@ class SageGraphFactory:
                 "Current Active Intents:\n"
                 + "\n".join([f"- [{i.id}] {i.description} ({i.decay_rule})" for i in non_decayed_intents])
                 + "\n\n"
-                "IMPORTANT: You MUST return a JSON object with 'new_intents' and 'satisfied_intent_ids'. "
-                "Use empty lists [] if there are no new intents or satisfied intents."
+                "IMPORTANT: You MUST return a JSON object with 'new_intents', 'satisfied_intent_ids', and 'focal_points'.\n"
+                "Use empty lists [] if there are no new items.\n"
+                "For 'focal_points', identify specific entities (Characters, Powers, Locations) the user is explicitly interested in right now."
             )
             
             intent_messages = [
@@ -143,14 +159,21 @@ class SageGraphFactory:
                 # Add new
                 final_intents.extend(extraction.new_intents)
                 
+                # --- PROCESS FOCAL POINTS ---
+                focal_map = {fp.id: fp for fp in next_focal_points}
+                for new_fp in extraction.focal_points:
+                    focal_map[new_fp.id] = new_fp
+                final_focal_points = list(focal_map.values())
+                
             except Exception as e:
-                # Fallback on error: keep existing non-decayed
-                # print(f"Intent extraction failed: {e}")
+                # Fallback on error: keep existing
                 final_intents = non_decayed_intents
+                final_focal_points = next_focal_points
 
             return {
                 "prompt_history": new_history_entry,
-                "intents": final_intents
+                "intents": final_intents,
+                "focal_points": final_focal_points
             }
 
         async def call_model(state: AgentState):

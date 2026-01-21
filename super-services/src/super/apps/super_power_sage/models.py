@@ -11,6 +11,15 @@ class IntentDecayRule(str, Enum):
     DECAY = "DECAY"
     KEEP_UNTIL_SATISFIED = "KEEP_UNTIL_SATISFIED"
 
+class GraphFocalPoint(BaseModel):
+    """
+    Represents a specific node in the graph that is currently relevant to the conversation.
+    """
+    id: str = Field(description="Node ID to focus on")
+    label: str = Field(description="Human readable label")
+    strength: float = Field(default=1.0, description="Current relevance weight (0.0 to 1.0)")
+    turns_active: int = Field(default=0, description="Turns since first identification")
+
 class UserIntent(BaseModel):
     """
     Represents a derived user intent/goal.
@@ -27,6 +36,7 @@ class IntentUpdate(BaseModel):
     """
     new_intents: List[UserIntent] = Field(description="List of NEW intents derived from the latest user message.")
     satisfied_intent_ids: List[str] = Field(description="List of IDs of EXISTING intents that are satisfied by the assistant's previous actions or the user's current confirmation.")
+    focal_points: List[GraphFocalPoint] = Field(default_factory=list, description="List of focal points identified in the user prompt.")
 
 
 class SseEventType(str, Enum):
@@ -37,6 +47,7 @@ class SseEventType(str, Enum):
     HEARTBEAT = "heartbeat"
     ANSWER = "answer"
     HERO_DATA = "hero_data"
+    METADATA = "metadata"
 
 class SseEvent(BaseModel):
     """
