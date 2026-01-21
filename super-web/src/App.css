@@ -512,8 +512,9 @@ button:disabled {
 
   /* GRID LAYOUT */
   display: grid !important;
-  grid-template-columns: 1fr !important;
-  /* Force Single Column */
+  grid-template-columns: 1fr 1fr !important;
+  /* Double Column */
+  column-gap: 20px !important;
   align-content: start;
 }
 
