@@ -87,3 +87,48 @@ body {
   column-gap: 20px !important;
   width: 100% !important;
 }
+
+/* Clean up Vis Config Borders (Nuclear Option) */
+.vis-configuration-wrapper .vis-config-header,
+.vis-configuration-wrapper .vis-config-item,
+.vis-configuration-wrapper .vis-config-separator,
+.vis-configuration-wrapper .vis-config-label,
+.vis-configuration-wrapper .vis-configuration,
+.vis-configuration-wrapper .vis-config-s0 {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Hide the empty "s0" div that Vis generates at the top */
+.vis-configuration-wrapper .vis-config-item:empty {
+  display: none !important;
+}
+
+/* Ensure Button is the ONLY thing with a border */
+.custom-shrink-btn {
+  border: 1px solid #00f3ff !important;
+  background: rgba(20, 22, 30, 0.5) !important;
+}
+
+/* NUCLEAR: Kill all pseudo-elements (separators often live here) */
+.vis-configuration-wrapper .vis-config-item::before,
+.vis-configuration-wrapper .vis-config-item::after,
+.vis-configuration-wrapper .vis-config-header::before,
+.vis-configuration-wrapper .vis-config-header::after,
+.vis-configuration-wrapper .vis-config-s0::before,
+.vis-configuration-wrapper .vis-config-s0::after,
+.vis-configuration-wrapper::before,
+.vis-configuration-wrapper::after {
+  content: none !important;
+  border: none !important;
+  display: none !important;
+}
+
+/* NUCLEAR: Kill Wrapper Borders (The Container Itself) */
+.vis-configuration-wrapper {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}

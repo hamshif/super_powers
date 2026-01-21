@@ -162,9 +162,15 @@ const GraphViewer = ({ center, onClose }) => {
                 btn.style.alignItems = 'center';
                 btn.style.marginRight = '10px';
 
+                // Button Styling (Cyan Box)
+                btn.style.border = '1px solid #00f3ff';
+                btn.style.background = 'rgba(20, 22, 30, 0.5)';
+                btn.style.padding = '4px';
+                btn.style.borderRadius = '4px';
+
                 // SVG Icon (Arrows In)
                 btn.innerHTML = `
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00f3ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="4 14 10 14 10 20"></polyline>
                         <polyline points="20 10 14 10 14 4"></polyline>
                         <line x1="14" y1="10" x2="21" y2="3"></line>
@@ -178,6 +184,26 @@ const GraphViewer = ({ center, onClose }) => {
                 };
 
                 header.prepend(btn);
+            }
+
+            // Remove Empty Separator Logic (Nuclear DOM Cleanup)
+            // Vis often puts an empty 'vis-config-s0' div before the header as a spacer/line.
+            try {
+                const parent = header?.parentElement; // The .vis-config-item wrapping the header
+                if (parent) {
+                    const prev = parent.previousElementSibling;
+                    // Check if previous sibling is an empty s0 item
+                    if (prev &&
+                        prev.classList.contains('vis-config-s0') &&
+                        prev.classList.contains('vis-config-item') &&
+                        prev.innerText.trim() === ''
+                    ) {
+                        prev.style.display = 'none'; // Hide it
+                        // or prev.remove(); 
+                    }
+                }
+            } catch (e) {
+                // Ignore cleanup errors
             }
         };
 
@@ -273,7 +299,8 @@ const GraphViewer = ({ center, onClose }) => {
                             height: '10px',
                             width: '100%',
                             cursor: 'ns-resize',
-                            background: 'transparent',
+                            background: 'transparent', // Looks like the line?
+                            opacity: 0, // Force invisible
                             position: 'absolute',
                             top: '-5px',
                             zIndex: 101,
@@ -285,7 +312,9 @@ const GraphViewer = ({ center, onClose }) => {
                 <div style={{
                     position: 'relative', // Context for absolute button
                     background: isConfigOpen ? 'rgba(20, 22, 30, 0.65)' : 'transparent',
-                    borderTop: isConfigOpen ? '1px solid #00f3ff' : 'none',
+                    border: 'none', // NUCLEAR: No borders allowed
+                    outline: 'none',
+                    boxShadow: 'none',
                     flexShrink: 0,
                     display: 'flex',
                     flexDirection: 'column',
@@ -324,7 +353,8 @@ const GraphViewer = ({ center, onClose }) => {
                                 boxSizing: 'border-box',
                                 userSelect: 'none',
                                 overscrollBehavior: 'contain',
-                                paddingTop: '10px',
+                                paddingTop: '0px', // REMOVE GAP
+                                marginTop: '-1px', // OVERLAP PARENT BORDER
                                 paddingBottom: '20px'
                             }}
                         />
