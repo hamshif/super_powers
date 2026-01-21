@@ -35,8 +35,10 @@ const GraphViewer = ({ center, onClose }) => {
         document.body.style.cursor = 'ns-resize';
     };
 
-    // MOCK DATA for Offline Layout Development
-    const MOCK_DATA = {
+    // --- DATASETS ---
+
+    // "DEFAULT VIEW" (Hardcoded Superman Data)
+    const DEFAULT_VIEW_DATA = {
         nodes: [
             { id: 'Superman', label: 'Superman', title: 'Start Node', group: 'Hero', color: '#ff9999' },
             { id: 'Flight', label: 'Flight', title: 'Power', group: 'Power', color: '#9999ff' },
@@ -53,6 +55,13 @@ const GraphViewer = ({ center, onClose }) => {
             { from: 'Flight', to: 'Gene-Y' }
         ]
     };
+
+    // "GLOBAL OVERVIEW" (Empty Initial State)
+    const GLOBAL_OVERVIEW_DATA = {
+        nodes: [],
+        edges: []
+    };
+
 
     // Default Options (Dark Mode + Physics)
     const getOptions = (physicsEnabled, configContainer) => ({
@@ -110,10 +119,16 @@ const GraphViewer = ({ center, onClose }) => {
         // Always render with Mock Data immediately
         const usePhysics = true;
 
+        // Determine Data Source
+        let graphData = DEFAULT_VIEW_DATA;
+        if (center === 'overview') {
+            graphData = GLOBAL_OVERVIEW_DATA;
+        }
+
         // Create Network
         networkRef.current = new Network(
             containerRef.current,
-            MOCK_DATA,
+            graphData,
             getOptions(usePhysics, configRef.current)
         );
 
@@ -242,7 +257,7 @@ const GraphViewer = ({ center, onClose }) => {
             observer.disconnect();
             if (networkRef.current) networkRef.current.destroy();
         };
-    }, []); // Run once on mount, ignore 'center' prop for now
+    }, [center]); // Re-run when center (dataset) changes
 
     return (
         <div className="graph-viewer-layout" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'auto' }}>

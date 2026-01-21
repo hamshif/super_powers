@@ -12,7 +12,7 @@ function App() {
   // Graph UI State
   const [showGraph, setShowGraph] = useState(true)
   const [graphHistory, setGraphHistory] = useState([])
-  const [activeGraphCtx, setActiveGraphCtx] = useState("Bugs Bunny") // Default to Bugs Bunny
+  const [activeGraphCtx, setActiveGraphCtx] = useState("default") // Default to "Default View"
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -246,7 +246,8 @@ function App() {
                 value={activeGraphCtx || "overview"}
                 onChange={(e) => setActiveGraphCtx(e.target.value)}
               >
-                <option value="overview">GLOBAL OVERVIEW</option>
+                <option value="default">DEFAULT VIEW</option>
+                <option value="overview">GLOBAL OVERVIEW (EMPTY)</option>
                 {graphHistory.map((item, i) => (
                   <option key={i} value={item.token}>
                     {item.label.toUpperCase()}
