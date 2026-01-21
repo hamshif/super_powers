@@ -96,7 +96,7 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
         }
     });
 
-    // --- FOCAL POINT HIGHLIGHTER (DEBUG: RED NODES) ---
+    // --- FOCAL POINT HIGHLIGHTER (RED NODE + BLUE BOLD TEXT) ---
     // Placed at Top Level to avoid nested hook errors
     useEffect(() => {
         if (!networkRef.current || !focalPoints) return;
@@ -104,8 +104,6 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
         try {
             // Check if nodes dataset exists (safe access)
             if (!networkRef.current.body || !networkRef.current.body.data || !networkRef.current.body.data.nodes) return;
-
-            console.log("Processing Focal Points (Debug):", focalPoints);
 
             const allNodes = networkRef.current.body.data.nodes.get();
             const updates = [];
@@ -116,27 +114,35 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
                 // Update if focal status changes or strength updates
 
                 if (fp) {
-                    // APPLY DEBUG RED
-                    console.log(`Highlighting Node: ${node.id} (Strength: ${fp.strength})`);
+                    // APPLY VISUALS: Red Node + Blue Bold Text (No Aura)
                     updates.push({
                         id: node.id,
                         color: {
-                            background: '#ff0000', // Bright Red
+                            background: '#ff0000', // Red Node
                             border: '#ff0000',
                             highlight: { background: '#ff0000', border: '#ff0000' }
                         },
+                        font: {
+                            color: '#3399ff', // Bright Blue for readability
+                            size: 20,
+                            face: 'Inter',
+                            multi: true,
+                            bold: { color: '#3399ff', size: 20, mod: 'bold' }
+                        },
+                        label: `<b>${node.label ? node.label.replace(/<\/?b>/g, '') : node.id}</b>`, // Ensure wrapping in bold only once
                         shadow: {
-                            enabled: true,
-                            color: '#ff0000',
-                            size: 25 * fp.strength
+                            enabled: false // User requested "No need for aura"
                         }
                     });
-                } else if (node.shadow && node.shadow.enabled && node.shadow.color === '#ff0000') {
-                    // RESET TO DEFAULT (rough reset)
-                    // We check if it WAS red before clearing, to avoid clearing other potential styles
+                } else if (node.color && node.color.background === '#ff0000') {
+                    // RESET TO DEFAULT
                     updates.push({
                         id: node.id,
-                        color: null, // Reset to group defaults
+                        color: null,
+                        // Reset font to default (approximate, Vis defaults)
+                        font: { color: '#e0e6ed', size: 25, face: 'Inter', multi: false },
+                        // Strip bold tags
+                        label: node.label ? node.label.replace(/<\/?b>/g, '') : node.id,
                         shadow: { enabled: false }
                     });
                 }
@@ -144,7 +150,6 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
 
             if (updates.length > 0) {
                 networkRef.current.body.data.nodes.update(updates);
-                console.log(`Updated ${updates.length} nodes with RED DEBUG HIGHLIGHT.`);
             }
         } catch (e) {
             console.warn("Error updating focal points:", e);
