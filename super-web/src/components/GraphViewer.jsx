@@ -10,6 +10,30 @@ const GraphViewer = ({ center, onClose }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [isConfigOpen, setIsConfigOpen] = useState(true);
+    const [panelHeight, setPanelHeight] = useState(350);
+
+    // --- RESIZE HANDLER ---
+    const handleResizeMouseDown = (e) => {
+        e.preventDefault();
+        const startY = e.clientY;
+        const startHeight = panelHeight;
+
+        const onMouseMove = (moveEvent) => {
+            const delta = startY - moveEvent.clientY; // Dragging UP increases height
+            const newHeight = Math.max(100, Math.min(window.innerHeight * 0.8, startHeight + delta));
+            setPanelHeight(newHeight);
+        };
+
+        const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            document.body.style.cursor = 'default';
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        document.body.style.cursor = 'ns-resize';
+    };
 
     // MOCK DATA for Offline Layout Development
     const MOCK_DATA = {
@@ -179,14 +203,14 @@ const GraphViewer = ({ center, onClose }) => {
         const observer = new MutationObserver(() => {
             formatLabels();
             injectToggle();
-            flattenLayout();
+            // flattenLayout();
         });
         observer.observe(configRef.current, { childList: true, subtree: true });
 
         // Initial run
         formatLabels();
         injectToggle();
-        flattenLayout();
+        // flattenLayout();
 
         return () => {
             observer.disconnect();
@@ -241,6 +265,22 @@ const GraphViewer = ({ center, onClose }) => {
                     </button>
                 )}
 
+                {/* --- RESIZE HANDLE --- */}
+                {isConfigOpen && (
+                    <div
+                        onMouseDown={handleResizeMouseDown}
+                        style={{
+                            height: '10px',
+                            width: '100%',
+                            cursor: 'ns-resize',
+                            background: 'transparent',
+                            position: 'absolute',
+                            top: '-5px',
+                            zIndex: 101,
+                        }}
+                    />
+                )}
+
                 {/* --- CONFIG PANEL (EXPANDABLE) --- */}
                 <div style={{
                     position: 'relative', // Context for absolute button
@@ -249,9 +289,9 @@ const GraphViewer = ({ center, onClose }) => {
                     flexShrink: 0,
                     display: 'flex',
                     flexDirection: 'column',
-                    transition: 'all 0.3s ease',
-                    // Primary Toggle: Height transition
-                    height: isConfigOpen ? '35vh' : '0px',
+                    transition: 'height 0.1s ease-out',
+                    // Primary Toggle: Dynamic Height
+                    height: isConfigOpen ? `${panelHeight}px` : '0px',
                     overflow: 'hidden' // Strict containment for scrollbars
                 }}>
                     {/* Always rendered to keep Vis Interface alive */}
@@ -272,9 +312,14 @@ const GraphViewer = ({ center, onClose }) => {
                                 width: '100%',
                                 height: 'auto', // Grow vertically
 
-                                display: 'grid',
-                                gridTemplateColumns: '1fr 1fr',
-                                columnGap: '15px',
+                                // Re-enable Grid (Color issue fixed globally)
+                                // display: 'grid',
+                                // gridTemplateColumns: 'minmax(450px, 1fr) minmax(450px, 1fr)',
+                                // columnGap: '15px',
+
+                                // display: 'block',
+                                // columnCount: 2,
+                                // columnGap: '20px',
 
                                 boxSizing: 'border-box',
                                 userSelect: 'none',

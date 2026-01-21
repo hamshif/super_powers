@@ -59,18 +59,31 @@ body {
   background: rgba(255, 255, 255, 0.4);
 }
 
-/* body::after {
-  content: "Ain't I a stinker!";
-  position: fixed;
-  top: calc(1cm + 11vw);
-  left: 1cm;
-  width: 20vw;
-  text-align: center;
-  color: var(--cyber-cyan);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.85rem;
-  font-weight: bold;
-  font-style: italic;
-  pointer-events: none;
-  z-index: -1;
-} */
+
+/* Force Vis Config Visibility */
+.vis-configuration-wrapper,
+.vis-configuration-wrapper * {
+  color: #e0e6ed !important;
+  visibility: visible !important;
+  /* Ensure nothing hides it */
+}
+
+/* 2-Column Safety: Prevent items from splitting across columns */
+.vis-configuration-wrapper>div,
+.vis-configuration-wrapper .vis-config-group {
+  break-inside: avoid-column;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  display: inline-block;
+  /* Helps force block integrity in some browsers */
+  width: 100%;
+}
+
+/* DEEP COLUMNS: Force internal wrapper to split if Vis adds one */
+/* DEEP GRID: Force internal wrapper to use Grid */
+.vis-configuration-wrapper>div {
+  display: grid !important;
+  grid-template-columns: minmax(450px, 1fr) minmax(450px, 1fr) !important;
+  column-gap: 20px !important;
+  width: 100% !important;
+}
