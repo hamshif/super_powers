@@ -7,6 +7,7 @@ const GraphViewer = ({ center, onClose }) => {
     const containerRef = useRef(null);
     const configRef = useRef(null);
     const networkRef = useRef(null);
+    const overviewCache = useRef(null); // Cache for Global Overview
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [isConfigOpen, setIsConfigOpen] = useState(true);
@@ -115,32 +116,60 @@ const GraphViewer = ({ center, onClose }) => {
             setLoading(true);
             let graphData = { nodes: [], edges: [] };
 
-            try {
-                let queryCenter = center;
-                if (center === 'default') {
-                    queryCenter = ''; // Empty for default
-                }
-
-                console.log(`Fetching Graph Data for: ${center} (query: '${queryCenter}')`);
-                const response = await fetch(`/super_powers_sage/graph_data?center=${encodeURIComponent(queryCenter || '')}`);
-
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.nodes && data.nodes.length > 0) {
-                        graphData = data;
-                    } else if (center === 'default') {
-                        console.warn("Server returned empty data for default. Using fallback.");
-                        graphData = DEFAULT_VIEW_DATA;
-                    }
-                } else {
-                    console.warn(`Graph fetch failed: ${response.status}. Using fallback if default.`);
-                    if (center === 'default') graphData = DEFAULT_VIEW_DATA;
-                }
-            } catch (e) {
-                console.error("Graph fetch error", e);
-                if (center === 'default') graphData = DEFAULT_VIEW_DATA;
-            } finally {
+            // 1. Check Cache for Overview
+            if (center === 'overview' && overviewCache.current) {
+                console.log("Using Cached Global Overview");
+                graphData = overviewCache.current;
                 setLoading(false);
+            } else {
+                // 2. Fetch Data
+                try {
+                    let queryCenter = center;
+                    if (center === 'default') {
+                        queryCenter = ''; // Empty for default
+                    }
+
+                    console.log(`Fetching Graph Data for: ${center} (query: '${queryCenter}')`);
+                    const response = await fetch(`/super_powers_sage/graph_data?center=${encodeURIComponent(queryCenter || '')}`);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.nodes && data.nodes.length > 0) {
+                            graphData = data;
+
+                            // CACHE: Save overview if fetched
+                            if (center === 'overview') {
+                                overviewCache.current = data;
+                            }
+
+                            // PREFETCH: If default loaded, get overview in background
+                            if (center === 'default' && !overviewCache.current) {
+                                console.log("Triggering Background Prefetch for Global Overview...");
+                                fetch(`/super_powers_sage/graph_data?center=overview`)
+                                    .then(res => res.json())
+                                    .then(overviewData => {
+                                        if (overviewData.nodes && overviewData.nodes.length > 0) {
+                                            console.log("Background Prefetch Complete. Cached Overview.");
+                                            overviewCache.current = overviewData;
+                                        }
+                                    })
+                                    .catch(err => console.warn("Background Prefetch Failed", err));
+                            }
+
+                        } else if (center === 'default') {
+                            console.warn("Server returned empty data for default. Using fallback.");
+                            graphData = DEFAULT_VIEW_DATA;
+                        }
+                    } else {
+                        console.warn(`Graph fetch failed: ${response.status}. Using fallback if default.`);
+                        if (center === 'default') graphData = DEFAULT_VIEW_DATA;
+                    }
+                } catch (e) {
+                    console.error("Graph fetch error", e);
+                    if (center === 'default') graphData = DEFAULT_VIEW_DATA;
+                } finally {
+                    setLoading(false);
+                }
             }
 
             // Always render with Mock Data immediately
@@ -394,7 +423,7 @@ const GraphViewer = ({ center, onClose }) => {
                                 userSelect: 'none',
                                 overscrollBehavior: 'contain',
                                 paddingTop: '0px', // REMOVE GAP
-                                paddingLeft: '0px', // REMOVE LEFT GAP
+                                paddingLeft: '6px', // Buffer
                                 marginTop: '-1px', // OVERLAP PARENT BORDER
                                 paddingBottom: '20px'
                             }}
