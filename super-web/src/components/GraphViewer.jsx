@@ -10,7 +10,7 @@ const GraphViewer = ({ center, onClose }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [isConfigOpen, setIsConfigOpen] = useState(true);
-    const [panelHeight, setPanelHeight] = useState(350);
+    const [panelHeight, setPanelHeight] = useState(180); // 50% lower starting point (was 350)
 
     // --- RESIZE HANDLER ---
     const handleResizeMouseDown = (e) => {
@@ -354,6 +354,7 @@ const GraphViewer = ({ center, onClose }) => {
                                 userSelect: 'none',
                                 overscrollBehavior: 'contain',
                                 paddingTop: '0px', // REMOVE GAP
+                                paddingLeft: '0px', // REMOVE LEFT GAP
                                 marginTop: '-1px', // OVERLAP PARENT BORDER
                                 paddingBottom: '20px'
                             }}
