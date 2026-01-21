@@ -9,6 +9,7 @@ const GraphViewer = ({ center, onClose }) => {
     const networkRef = useRef(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [isConfigOpen, setIsConfigOpen] = useState(true);
 
     // MOCK DATA for Offline Layout Development
     const MOCK_DATA = {
@@ -131,25 +132,87 @@ const GraphViewer = ({ center, onClose }) => {
             <div
                 ref={containerRef}
                 className="graph-canvas"
-                style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', outline: 'none' }}
+                style={{ flex: 1, minHeight: '600px', position: 'relative', overflow: 'hidden', outline: 'none' }}
             >
                 {/* Network renders here */}
             </div>
 
             {/* Control Panel (Rendered by Vis into this div) */}
-            <div
-                ref={configRef}
-                className="vis-configuration-wrapper"
-                style={{
-                    height: '35vh',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    flex: 'none',
-                    overflowY: 'auto',
-                    userSelect: 'none',
-                    overscrollBehavior: 'contain'
-                }}
-            />
+            {/* Persistent Control Bar */}
+            <div style={{
+                background: 'rgba(20, 22, 30, 0.65)',
+                borderTop: '1px solid #00f3ff',
+                flexShrink: 0,
+                display: 'flex',
+                flexDirection: 'column'
+            }}>
+                {/* Toggle Button Row */}
+                <div style={{
+                    padding: '8px',
+                    display: 'flex',
+                    justifyContent: 'flex-start',
+                    alignItems: 'center',
+                    borderBottom: isConfigOpen ? '1px solid rgba(0, 243, 255, 0.2)' : 'none'
+                }}>
+                    <button
+                        onClick={() => setIsConfigOpen(!isConfigOpen)}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#00f3ff',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: '0.9rem',
+                            fontWeight: 'bold',
+                            textTransform: 'uppercase'
+                        }}
+                    >
+                        {isConfigOpen ? (
+                            <>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="4 14 10 14 10 20" />
+                                    <polyline points="20 10 14 10 14 4" />
+                                    <line x1="14" y1="10" x2="21" y2="3" />
+                                    <line x1="3" y1="21" x2="10" y2="14" />
+                                </svg>
+                                <span>Mask Config</span>
+                            </>
+                        ) : (
+                            <>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="15 3 21 3 21 9" />
+                                    <polyline points="9 21 3 21 3 15" />
+                                    <line x1="21" y1="3" x2="14" y2="10" />
+                                    <line x1="3" y1="21" x2="10" y2="14" />
+                                </svg>
+                                <span>Show Config</span>
+                            </>
+                        )}
+                    </button>
+                </div>
+
+                {/* The actual Vis Config Panel (Collapsible) */}
+                <div
+                    ref={configRef}
+                    className="vis-configuration-wrapper"
+                    style={{
+                        display: isConfigOpen ? 'grid' : 'none',
+                        height: isConfigOpen ? '35vh' : '0px',
+                        opacity: isConfigOpen ? 1 : 0,
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        overflowY: 'auto',
+                        userSelect: 'none',
+                        overscrollBehavior: 'contain',
+                        transition: 'height 0.3s ease, opacity 0.3s ease'
+                    }}
+                />
+            </div>
         </div>
     );
 };
