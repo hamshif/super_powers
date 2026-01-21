@@ -126,7 +126,7 @@ const GraphViewer = ({ center, onClose }) => {
     }, []); // Run once on mount, ignore 'center' prop for now
 
     return (
-        <div className="graph-viewer-layout" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+        <div className="graph-viewer-layout" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'auto' }}>
             {/* Graph Area */}
             <div
                 ref={containerRef}

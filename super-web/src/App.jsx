@@ -256,7 +256,7 @@ function App() {
             </div>
           </div>
           {/* Replaced iframe with client-side GraphViewer (Offline Capable) */}
-          <div className="graph-frame" style={{ flex: 1, overflow: 'hidden' }}>
+          <div className="graph-frame" style={{ flex: 1, overflow: 'auto' }}>
             <GraphViewer center={activeGraphCtx} />
           </div>
         </div>
