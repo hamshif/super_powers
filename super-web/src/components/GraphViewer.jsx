@@ -138,103 +138,98 @@ const GraphViewer = ({ center, onClose }) => {
             </div>
 
             {/* Control Panel (Rendered by Vis into this div) */}
-            {/* Persistent Control Bar */}
+            {/* --- EXPAND BUTTON (OUTSIDE PANEL) --- */}
+            {/* Renders only when panel is CLOSED */}
+            {!isConfigOpen && (
+                <button
+                    onClick={() => setIsConfigOpen(true)}
+                    style={{
+                        position: 'absolute',
+                        bottom: '10px',
+                        left: '10px',
+                        zIndex: 1000,
+                        background: 'rgba(20, 22, 30, 0.85)', // Dark backing
+                        border: '1px solid #00f3ff', // Visible border when closed
+                        color: '#00f3ff',
+                        cursor: 'pointer',
+                        padding: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '4px',
+                        boxShadow: '0 0 10px rgba(0, 243, 255, 0.2)'
+                    }}
+                    title="Expand Physics Settings"
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="15 3 21 3 21 9" />
+                        <polyline points="9 21 3 21 3 15" />
+                        <line x1="21" y1="3" x2="14" y2="10" />
+                        <line x1="3" y1="21" x2="10" y2="14" />
+                    </svg>
+                </button>
+            )}
+
+            {/* --- CONFIG PANEL (EXPANDABLE) --- */}
             <div style={{
                 background: isConfigOpen ? 'rgba(20, 22, 30, 0.65)' : 'transparent',
                 borderTop: isConfigOpen ? '1px solid #00f3ff' : 'none',
                 flexShrink: 0,
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                transition: 'all 0.3s ease',
+                // When content is hidden, this container should take 0 space
+                height: isConfigOpen ? 'auto' : '0px',
+                overflow: 'hidden'
             }}>
-
-                {/* CLOSED STATE: Expand Button Only */}
-                {!isConfigOpen && (
-                    <div style={{ padding: '2px', display: 'flex', justifyContent: 'flex-start' }}>
-                        <button
-                            onClick={() => setIsConfigOpen(true)}
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#00f3ff',
-                                cursor: 'pointer',
-                                padding: '4px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}
-                            title="Expand"
-                        >
-                            {/* Expand Icon (Arrows Out) */}
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="15 3 21 3 21 9" />
-                                <polyline points="9 21 3 21 3 15" />
-                                <line x1="21" y1="3" x2="14" y2="10" />
-                                <line x1="3" y1="21" x2="10" y2="14" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
-
-                {/* OPEN STATE: Header */}
-                {isConfigOpen && (
-                    <div style={{
-                        padding: '8px 15px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        borderBottom: '1px solid rgba(0, 243, 255, 0.2)'
-                    }}>
-                        <button
-                            onClick={() => setIsConfigOpen(false)}
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#00f3ff',
-                                cursor: 'pointer',
-                                padding: '0',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}
-                            title="Shrink"
-                        >
-                            {/* Shrink Icon (Arrows In) */}
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="4 14 10 14 10 20" />
-                                <polyline points="20 10 14 10 14 4" />
-                                <line x1="14" y1="10" x2="21" y2="3" />
-                                <line x1="3" y1="21" x2="10" y2="14" />
-                            </svg>
-                        </button>
-
-                        <h3 style={{
-                            margin: 0,
+                {/* OPEN STATE: VIS WRAPPER + OVERLAY BUTTON */}
+                {/* Always rendered to keep Vis Interface alive, visibility controlled by parent container style */}
+                <div style={{ position: 'relative', width: '100%', height: '35vh', display: isConfigOpen ? 'block' : 'none' }}>
+                    {/* Shrink Button (Overlay) */}
+                    <button
+                        onClick={() => setIsConfigOpen(false)}
+                        style={{
+                            position: 'absolute',
+                            top: '8px',
+                            right: '15px', // Place on right side of header row
+                            zIndex: 20,
+                            background: 'rgba(0,0,0,0.4)',
+                            border: '1px solid var(--cyber-cyan, #00f3ff)',
+                            borderRadius: '4px',
                             color: '#00f3ff',
-                            fontSize: '1rem',
-                            fontFamily: "'JetBrains Mono', monospace",
-                            textTransform: 'uppercase'
-                        }}>
-                            Physics
-                        </h3>
-                    </div>
-                )}
+                            cursor: 'pointer',
+                            padding: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                        title="Shrink Physics Panel"
+                    >
+                        {/* Shrink Icon (Arrows In) */}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="4 14 10 14 10 20" />
+                            <polyline points="20 10 14 10 14 4" />
+                            <line x1="14" y1="10" x2="21" y2="3" />
+                            <line x1="3" y1="21" x2="10" y2="14" />
+                        </svg>
+                    </button>
 
-                {/* Vis Config Content - ALWAYS RENDERED so Vis can attach, but toggled via display/height */}
-                <div
-                    ref={configRef}
-                    className="vis-configuration-wrapper"
-                    style={{
-                        display: isConfigOpen ? 'grid' : 'none',
-                        height: isConfigOpen ? '35vh' : '0px',
-                        opacity: isConfigOpen ? 1 : 0,
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        overflowY: 'auto',
-                        userSelect: 'none',
-                        overscrollBehavior: 'contain',
-                        paddingTop: isConfigOpen ? '10px' : '0'
-                    }}
-                />
+                    {/* Vis Config Content */}
+                    <div
+                        ref={configRef}
+                        className="vis-configuration-wrapper"
+                        style={{
+                            display: 'grid',
+                            height: '100%',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            overflowY: 'auto',
+                            userSelect: 'none',
+                            overscrollBehavior: 'contain',
+                            paddingTop: '10px' // Space for header
+                        }}
+                    />
+                </div>
             </div>
         </div>
     );
