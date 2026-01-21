@@ -56,11 +56,6 @@ const GraphViewer = ({ center, onClose }) => {
         ]
     };
 
-    // "GLOBAL OVERVIEW" (Empty Initial State)
-    const GLOBAL_OVERVIEW_DATA = {
-        nodes: [],
-        edges: []
-    };
 
 
     // Default Options (Dark Mode + Physics)
@@ -116,21 +111,51 @@ const GraphViewer = ({ center, onClose }) => {
             configRef.current.innerHTML = '';
         }
 
-        // Always render with Mock Data immediately
-        const usePhysics = true;
+        const loadGraph = async () => {
+            setLoading(true);
+            let graphData = { nodes: [], edges: [] };
 
-        // Determine Data Source
-        let graphData = DEFAULT_VIEW_DATA;
-        if (center === 'overview') {
-            graphData = GLOBAL_OVERVIEW_DATA;
-        }
+            try {
+                let queryCenter = center;
+                if (center === 'default') {
+                    queryCenter = ''; // Empty for default
+                }
 
-        // Create Network
-        networkRef.current = new Network(
-            containerRef.current,
-            graphData,
-            getOptions(usePhysics, configRef.current)
-        );
+                console.log(`Fetching Graph Data for: ${center} (query: '${queryCenter}')`);
+                const response = await fetch(`/super_powers_sage/graph_data?center=${encodeURIComponent(queryCenter || '')}`);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.nodes && data.nodes.length > 0) {
+                        graphData = data;
+                    } else if (center === 'default') {
+                        console.warn("Server returned empty data for default. Using fallback.");
+                        graphData = DEFAULT_VIEW_DATA;
+                    }
+                } else {
+                    console.warn(`Graph fetch failed: ${response.status}. Using fallback if default.`);
+                    if (center === 'default') graphData = DEFAULT_VIEW_DATA;
+                }
+            } catch (e) {
+                console.error("Graph fetch error", e);
+                if (center === 'default') graphData = DEFAULT_VIEW_DATA;
+            } finally {
+                setLoading(false);
+            }
+
+            // Always render with Mock Data immediately
+            const usePhysics = true;
+
+            // Create Network
+            networkRef.current = new Network(
+                containerRef.current,
+                graphData,
+                getOptions(usePhysics, configRef.current)
+            );
+        };
+
+        loadGraph();
+
 
         // --- LABEL FORMATTER (Separate Compound Words) ---
         const formatLabels = () => {
