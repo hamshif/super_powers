@@ -41,20 +41,22 @@ body {
 
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.3);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
+  background: var(--cyber-cyan);
+  /* High visibility #00f3ff */
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--cyber-cyan);
+  background: #fff;
 }
 
 /* body::after {

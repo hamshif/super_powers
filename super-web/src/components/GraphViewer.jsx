@@ -206,72 +206,84 @@ const GraphViewer = ({ center, onClose }) => {
             </div>
 
             {/* Control Panel (Rendered by Vis into this div) */}
-            {/* --- EXPAND BUTTON (OUTSIDE PANEL) --- */}
-            {/* Renders only when panel is CLOSED */}
-            {!isConfigOpen && (
-                <button
-                    onClick={() => setIsConfigOpen(true)}
-                    style={{
-                        position: 'absolute',
-                        bottom: '10px',
-                        left: '10px', // Moved to right
-                        zIndex: 1000,
-                        background: 'rgba(20, 22, 30, 0.85)', // Dark backing
-                        border: '1px solid #00f3ff', // Visible border when closed
-                        color: '#00f3ff',
-                        cursor: 'pointer',
-                        padding: '6px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: '4px',
-                        boxShadow: '0 0 10px rgba(0, 243, 255, 0.2)'
-                    }}
-                    title="Expand Physics Settings"
-                >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="15 3 21 3 21 9" />
-                        <polyline points="9 21 3 21 3 15" />
-                        <line x1="21" y1="3" x2="14" y2="10" />
-                        <line x1="3" y1="21" x2="10" y2="14" />
-                    </svg>
-                </button>
-            )}
+            {/* --- STICKY FOOTER (Controls) --- */}
+            <div style={{ position: 'sticky', bottom: 0, zIndex: 100, width: '100%' }}>
 
-            {/* --- CONFIG PANEL (EXPANDABLE) --- */}
-            <div style={{
-                position: 'relative', // Context for absolute button
-                background: isConfigOpen ? 'rgba(20, 22, 30, 0.65)' : 'transparent',
-                borderTop: isConfigOpen ? '1px solid #00f3ff' : 'none',
-                flexShrink: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                transition: 'all 0.3s ease',
-                // Primary Toggle: Height transition
-                height: isConfigOpen ? '35vh' : '0px',
-                overflow: isConfigOpen ? 'visible' : 'hidden'
-            }}>
-                {/* Always rendered to keep Vis Interface alive */}
-                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-
-                    {/* Vis Config Content */}
-                    <div
-                        ref={configRef}
-                        className="vis-configuration-wrapper"
+                {/* --- EXPAND BUTTON (OUTSIDE PANEL) --- */}
+                {/* Renders only when panel is CLOSED */}
+                {!isConfigOpen && (
+                    <button
+                        onClick={() => setIsConfigOpen(true)}
                         style={{
-                            display: 'grid',
-                            gridTemplateColumns: '1fr 1fr', // Force 2 columns
-                            columnGap: '15px',
-                            height: '100%',
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            overflowY: 'auto',
-                            // Removed overflowX: hidden to prevent clipping
-                            userSelect: 'none',
-                            overscrollBehavior: 'contain',
-                            paddingTop: '10px'
+                            position: 'absolute',
+                            bottom: '10px',
+                            left: '10px', // Moved to right
+                            zIndex: 1000,
+                            background: 'rgba(20, 22, 30, 0.85)', // Dark backing
+                            border: '1px solid #00f3ff', // Visible border when closed
+                            color: '#00f3ff',
+                            cursor: 'pointer',
+                            padding: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '4px',
+                            boxShadow: '0 0 10px rgba(0, 243, 255, 0.2)'
                         }}
-                    />
+                        title="Expand Physics Settings"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="15 3 21 3 21 9" />
+                            <polyline points="9 21 3 21 3 15" />
+                            <line x1="21" y1="3" x2="14" y2="10" />
+                            <line x1="3" y1="21" x2="10" y2="14" />
+                        </svg>
+                    </button>
+                )}
+
+                {/* --- CONFIG PANEL (EXPANDABLE) --- */}
+                <div style={{
+                    position: 'relative', // Context for absolute button
+                    background: isConfigOpen ? 'rgba(20, 22, 30, 0.65)' : 'transparent',
+                    borderTop: isConfigOpen ? '1px solid #00f3ff' : 'none',
+                    flexShrink: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: 'all 0.3s ease',
+                    // Primary Toggle: Height transition
+                    height: isConfigOpen ? '35vh' : '0px',
+                    overflow: 'hidden' // Strict containment for scrollbars
+                }}>
+                    {/* Always rendered to keep Vis Interface alive */}
+                    <div style={{
+                        position: 'relative',
+                        width: '100%',
+                        height: '100%', // Strict height
+                        overflow: 'auto', // PARENT SCROLLS
+                        zIndex: 10
+                    }}>
+
+                        {/* Vis Config Content - WIDE CONTAINER */}
+                        <div
+                            ref={configRef}
+                            className="vis-configuration-wrapper"
+                            style={{
+                                minWidth: '950px', // FORCE HORIZONTAL SCROLL
+                                width: '100%',
+                                height: 'auto', // Grow vertically
+
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 1fr',
+                                columnGap: '15px',
+
+                                boxSizing: 'border-box',
+                                userSelect: 'none',
+                                overscrollBehavior: 'contain',
+                                paddingTop: '10px',
+                                paddingBottom: '20px'
+                            }}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
