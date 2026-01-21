@@ -146,7 +146,7 @@ const GraphViewer = ({ center, onClose }) => {
                     style={{
                         position: 'absolute',
                         bottom: '10px',
-                        left: '10px',
+                        right: '15px', // Moved to right
                         zIndex: 1000,
                         background: 'rgba(20, 22, 30, 0.85)', // Dark backing
                         border: '1px solid #00f3ff', // Visible border when closed
