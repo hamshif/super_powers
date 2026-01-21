@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -77,37 +77,18 @@ def _apply_log_level(level: str) -> None:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifespan context manager for startup and shutdown events."""
     # Startup logic
-    global _graph
-    
+    global _graph, _gm_instance
     conf = get_app_conf(app="super_power_sage")
-    level = conf.get_string("super_power_sage.logging.level", "INFO")
-    _apply_log_level(level)
+    
+    _apply_log_level(conf.get_string("super_power_sage.logging.level", "INFO"))
     logger.info("Super Power Sage starting up...")
     
-    # 1. Initialize Ray and Actor
-    try:
-        import ray
-        from super.apps.generate_powers.worker import HeroGenerator
-        from super.apps.super_power_sage import state
-        
-        # Init Ray (auto-detects existing cluster or starts local)
-        if not ray.is_initialized():
-            ray.init(ignore_reinit_error=True)
-            
-        logger.info("Ray Initialized.")
-        
-        # Start Actor
-        # Use a named actor if we want to ensure only one exists, or just create one.
-        # For simplicity in this app, we create one instance for the app lifespan.
-        state.hero_generator = HeroGenerator.remote()
-        logger.info("HeroGenerator Actor started and registered in state.")
-        
-    except ImportError as e:
-        logger.warning(f"Ray/HeroGenerator dependencies not found. Asynchronous generation will fail: {e}")
-    except Exception as e:
-        logger.error(f"Failed to initialize Ray Actor: {e}", exc_info=True)
-
-    # 2. Init Agent
+    # 1. Initialize LangGraph Agent
+    logger.info("Initializing Super Power Sage Agent...")
+    
+    # Initialize Checkpointer
+    checkpointer = MemorySaver()
+    
     # Uses robust initialization with active rate-limit check and fallback
     try:
         model = utils.get_valid_llm(model_name="gpt-3.5-turbo")
@@ -117,16 +98,46 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Fallback to a dummy model so the server starts. 
         # Runtime calls will fail gracefully in the chat stream.
         model = ChatOpenAI(api_key="sk-mock-key-to-allow-startup", model="gpt-3.5-turbo")
-    checkpointer = MemorySaver()
 
-    # Dependency Injection: Inject OpenAI model
     _graph = SageGraphFactory.create_graph(model, checkpointer=checkpointer)
-    logger.info("Agent graph initialized with persistence.")
+    logger.info("Agent Graph initialized.")
     
+    # 2. Initialize Ray and Actors (CRITICAL DEPENDENCY)
+    try:
+        import ray
+        from super.apps.generate_powers.worker import HeroGenerator
+        from super.apps.super_power_sage.services.graph_service import GraphService
+        from super.apps.super_power_sage import state
+
+        if not ray.is_initialized():
+             ray.init(ignore_reinit_error=True)
+             logger.info("Ray Initialized.")
+        
+        # HeroGenerator
+        state.hero_generator = HeroGenerator.remote()
+        logger.info("HeroGenerator Actor started.")
+
+        # GraphService (Async Graph Gen)
+        warehouse_path = str(project_root / "data/warehouse")
+        conf = get_app_conf(app="super_power_sage")
+        def_hero = conf.get_string("super_power_sage.graph.default_hero", "Bugs Bunny")
+        def_k = conf.get_int("super_power_sage.graph.default_neighbors", 5)
+        
+        state.graph_service = GraphService.remote(warehouse_path, def_hero, def_k)
+        logger.info("GraphService Actor started.")
+        
+    except ImportError as e:
+        logger.critical(f"MISSING DEPENDENCY: Ray is required. Please install: pip install 'ray[default]'. Error: {e}")
+        raise e # Stop startup
+    except Exception as e:
+        logger.error(f"Failed to initialize Ray Actors: {e}", exc_info=True)
+        raise e # Stop startup
+
     yield
     
     # Shutdown logic
-    logger.info("Super Power Sage shutting down...")
+    logger.info("Shutting down Super Power Sage...")
+    _graph = None
     if ray.is_initialized():
         ray.shutdown()
         logger.info("Ray shutdown.")
@@ -190,10 +201,25 @@ async def _chat_stream(prompt: str, session_id: str) -> AsyncGenerator[str, None
 
         next_task = asyncio.create_task(get_next_chunk())
         
+        # Track graph updates to prevent spamming the UI
+        graph_update_sent = False
+
         while True:
             # Drain the queue for HERO_DATA events
             while state.data_queue:
                 data_item = state.data_queue.pop(0)
+                
+                # LIMIT LOGIC: Only send 'hero'/'center' trigger ONCE per session/stream
+                if 'hero' in data_item or 'center' in data_item:
+                    if graph_update_sent:
+                        # Strip trigger fields preventing frontend refresh
+                        data_item.pop('hero', None)
+                        data_item.pop('center', None)
+                        logger.debug("Stripped graph trigger from subsequent data item")
+                    else:
+                        graph_update_sent = True
+                        logger.debug("Emitting primary graph trigger")
+
                 yield _format_sse(
                     json.dumps(data_item),
                     event=SseEventType.HERO_DATA
@@ -259,58 +285,41 @@ def health() -> HealthResponse:
 
 
 @app.get("/super_powers_sage/visualize_graph", response_class=HTMLResponse)
-async def visualize_graph(center: str | None = None):
+async def visualize_graph(center: str = Query(None)):
     """
-    Returns an HTML visualization of the graph.
-    If 'center' is provided, shows subgraph around that node.
-    If 'center' is None/Empty, shows the High-Level Overview.
+    Returns the generated HTML for the graph visualization.
+    Fetches the graph asynchronously from the GraphService Ray Actor.
     """
     try:
-        # Lazy import or get global GM if available. 
-        # Using tools._get_gm() pattern or re-instantiating.
-        # Ideally we share the instance. In server.py we can load it once. 
-        # But for now, let's instantiate to be safe and stateless or check global _graph's tools?
-        # To avoid overhead, let's use a cached global variable in this module if possible, 
-        # OR just instantiate since it reads parquet (via Pandas) which is cached by OS.
-        
-        # We need the warehouse path.
-        # Assuming defaults work in GraphManager logic (which we verified uses env or relative path).
-        from super.core.graph import GraphManager
-        
-        # Optimization: Instantiate once globally? 
-        # For this iteration, let's instantiate.
-        # If warehouse loading is slow (~1-2s), this endpoint might be slow on first hit.
-        
-        # Explicitly pass the warehouse path to ensure it works regardless of CWD
-        warehouse_path = project_root / "data/warehouse"
-        gm = GraphManager(warehouse_root=str(warehouse_path)) 
-        
-        if center and center.strip() and center.lower() != "overview":
-            # Contextual Subgraph
-            sub_G = gm.subgraph_for_hero(center, depth=2)
-            if not sub_G or sub_G.number_of_nodes() == 0:
-                # Fallback if hero not found (maybe it's a seed or power?)
-                # Try getting subgraph for any node ID
-                sub_G = gm.get_subgraph_for_node(center, depth=2) # Returns dict, visualize needs Graph
-                # Wait, get_subgraph_for_node returned serialization dict.
-                # Use subgraph logic directly:
-                if center in gm.G:
-                     # Create subgraph manually using nx
-                     # Re-use logic or just accept it might be empty
-                     nodes = {center} | set(gm.G.neighbors(center))
-                     sub_G = gm.G.subgraph(nodes)
-                else:
-                     return HTMLResponse(f"<h3>Node '{center}' not found in graph.</h3>")
-        else:
-            # Overview Mode
-            sub_G = gm.get_overview_graph(limit=150)
-            
-        html_content = gm.visualize(sub_G, filename=None)
+        if state.graph_service is None:
+             return HTMLResponse("<h1>Graph Service Unavailable (Ray not connected)</h1>", status_code=503)
+
+        # Non-blocking remote call
+        html_content = await state.graph_service.get_html.remote(center)
         return HTMLResponse(content=html_content, status_code=200)
-        
+
     except Exception as e:
         logger.error(f"Graph viz failed: {e}", exc_info=True)
         return HTMLResponse(f"<h3>Error generating graph: {e}</h3>", status_code=500)
+
+
+@app.get("/super_powers_sage/graph_data")
+async def graph_data(center: str = Query(None)):
+    """
+    Returns JSON graph data for client-side rendering.
+    Fetches asynchronously from the GraphService Ray Actor.
+    """
+    try:
+        if state.graph_service is None:
+             return JSONResponse({"error": "Graph Service Unavailable"}, status_code=503)
+
+        # Non-blocking remote call
+        data = await state.graph_service.get_graph_data.remote(center)
+        return JSONResponse(content=data, status_code=200)
+
+    except Exception as e:
+        logger.error(f"Graph data fetch failed: {e}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.post("/super_powers_sage")

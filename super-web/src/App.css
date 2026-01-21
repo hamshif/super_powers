@@ -535,7 +535,7 @@ button:disabled {
   white-space: normal !important;
   /* Wrap text */
   word-wrap: break-word !important;
-  margin-right: 15px !important;
+  margin-right: 7px !important;
 }
 
 .vis-configuration-wrapper .vis-config-header {
@@ -575,12 +575,15 @@ button:disabled {
 }
 
 .vis-configuration-wrapper input[type="text"],
-.vis-configuration-wrapper input[type="number"] {
+.vis-configuration-wrapper input[type="number"],
+.vis-configuration-wrapper .vis-config-rangeinput {
   background: var(--bg-dark) !important;
   color: var(--cyber-cyan) !important;
   border: 1px solid var(--glass-border) !important;
   border-radius: 4px !important;
   padding: 4px 8px !important;
+  max-width: 50px !important;
+  width: 50px !important;
 }
 
 /* Checkboxes */

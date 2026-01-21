@@ -12,3 +12,6 @@ hero_generator: Optional[Any] = None
 # Side-channel data queue for SSE streaming
 # List of dicts: [{"type": "...", "data": ...}]
 data_queue: list[dict[str, Any]] = []
+
+# Graph Service Actor reference
+graph_service: Optional[Any] = None

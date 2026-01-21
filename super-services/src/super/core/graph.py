@@ -206,7 +206,7 @@ class GraphManager:
         # Serialize
         return nx.node_link_data(subG)
 
-    def subgraph_for_hero(self, hero_name, depth=2):
+    def subgraph_for_hero(self, hero_name, depth=2, max_neighbors=None):
         """Extracts a subgraph centered on a hero (returns nx.Graph)."""
         if hero_name not in self.G:
             return None
@@ -217,7 +217,9 @@ class GraphManager:
             next_nodes = set()
             for n in curr:
                 # Neighbors (both directions)
-                neighbors = set(self.G.successors(n)) | set(self.G.predecessors(n))
+                neighbors = list(set(self.G.successors(n)) | set(self.G.predecessors(n)))
+                if max_neighbors:
+                    neighbors = neighbors[:max_neighbors]
                 next_nodes.update(neighbors)
             nodes.update(next_nodes)
             curr = next_nodes
@@ -261,7 +263,7 @@ class GraphManager:
         # Create Subgraph
         return self.G.subgraph(final_nodes)
 
-    def visualize(self, graph=None, filename=None):
+    def visualize(self, graph=None, filename=None, physics_enabled=True):
         """
         Visualizes the graph using PyVis.
         
@@ -269,12 +271,35 @@ class GraphManager:
             graph (nx.Graph, optional): Subgraph to visualize. Defaults to full graph.
             filename (str, optional): If provided, saves HTML to this file. 
                                       If None, returns the HTML string for inline display.
+            physics_enabled (bool): Whether to enable physics simulation in the browser.
+                                    Disable for large graphs to prevent UI blocking.
         """
         if graph is None:
             graph = self.G
             
+        # SANITIZATION: Create a lightweight copy for visualization
+        # We strip heavy attributes (genome, embeddings) which bloat the HTML and freeze the browser
+        viz_G = nx.DiGraph()
+        
+        # Copy nodes with whitelist
+        safe_attrs = {'label', 'title', 'type', 'id', 'color', 'shape', 'size'}
+        for n, data in graph.nodes(data=True):
+            safe_data = {k: v for k, v in data.items() if k in safe_attrs}
+            # Ensure label exists
+            if 'label' not in safe_data:
+                safe_data['label'] = str(n)
+            # Ensure title (tooltip) exists
+            if 'title' not in safe_data:
+                # Use type or simplified info
+                safe_data['title'] = f"{n} ({safe_data.get('type', 'Unknown')})"
+            
+            viz_G.add_node(n, **safe_data)
+            
+        # Copy edges
+        viz_G.add_edges_from(graph.edges())
+
         net = Network(height="750px", width="100%", notebook=False, cdn_resources='in_line')
-        net.from_nx(graph)
+        net.from_nx(viz_G)
         
         # Color nodes by type
         for node in net.nodes:
@@ -289,14 +314,18 @@ class GraphManager:
             
         # Apply user-requested defaults to reduce pulsating
         # We include "configure" here because set_options overrides previous settings
-        options = """
-        {
-          "configure": {
+        # We disable physics if requested (for Overview)
+        phys_bool = "true" if physics_enabled else "false"
+        
+        options = f"""
+        {{
+          "configure": {{
             "enabled": true,
             "filter": ["physics"]
-          },
-          "physics": {
-            "barnesHut": {
+          }},
+          "physics": {{
+            "enabled": {phys_bool},
+            "barnesHut": {{
               "theta": 0.15,
               "gravitationalConstant": -3350,
               "centralGravity": 0.3,
@@ -304,14 +333,14 @@ class GraphManager:
               "springConstant": 0.04,
               "damping": 0.09,
               "avoidOverlap": 0
-            },
+            }},
             "maxVelocity": 36,
             "minVelocity": 0.07,
             "solver": "barnesHut",
             "timestep": 0.5,
-            "wind": { "x": 0, "y": 0 }
-          }
-        }
+            "wind": {{ "x": 0, "y": 0 }}
+          }}
+        }}
         """
         net.set_options(options)
         
@@ -319,6 +348,8 @@ class GraphManager:
         def _inject_layout_css(html_str):
             custom_style = """
             <style>
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@500&display=swap');
+                
                 html, body {
                     height: 100vh;
                     width: 100vw;
@@ -327,32 +358,89 @@ class GraphManager:
                     display: flex;
                     flex-direction: column;
                     overflow: hidden;
+                    background-color: #0f1115; /* App Dark Bg */
+                    color: #e0e6ed;
+                    font-family: 'Inter', sans-serif;
                 }
-                /* PyVis wraps the network in a .card div */
+                
+                /* PyVis Card Wrapper */
                 .card {
                     width: 100% !important;
-                    height: 66vh !important;
+                    height: 66vh !important; /* Top 2/3 for Graph */
                     flex: none;
                     border: none !important;
                     margin: 0 !important;
                     padding: 0 !important;
+                    background: transparent !important;
                 }
+                
                 #mynetwork {
                     width: 100% !important;
                     height: 100% !important;
                     border: none !important;
+                    outline: none;
                 }
-                /* The config div */
-                #config {
+                
+                /* Config Panel (The Controls) */
+                div.vis-configuration-wrapper {
                     width: 100% !important;
-                    height: 34vh !important;
+                    height: 34vh !important; /* Bottom 1/3 for Controls */
                     flex: none;
                     overflow-y: auto;
-                    background: #f5f5f5;
-                    border-top: 2px solid #333;
-                    padding: 10px;
+                    background: rgba(20, 22, 30, 0.95) !important; /* Glass Surface */
+                    border-top: 1px solid rgba(0, 243, 255, 0.3);
+                    padding: 15px;
                     box-sizing: border-box;
+                    display: block !important;
                 }
+                
+                /* Hide header junk if present */
+                .vis-configuration-wrapper::before { content: "PHYSICS CONTROLS"; display: block; color: #00f3ff; font-family: 'JetBrains Mono', monospace; font-weight: bold; margin-bottom: 10px; letter-spacing: 1px; }
+
+                /* Style Items */
+                .vis-config-item {
+                    background: transparent !important;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                    padding: 8px 0;
+                    display: flex;
+                    align-items: center;
+                }
+                
+                .vis-config-label {
+                    color: #94a3b8;
+                    font-weight: 500;
+                    font-size: 0.9em;
+                    min-width: 140px;
+                }
+
+                /* Inputs */
+                input[type="range"] {
+                    accent-color: #00f3ff;
+                    flex: 1;
+                    cursor: pointer;
+                }
+                
+                input[type="checkbox"] {
+                    accent-color: #00f3ff;
+                    width: 16px;
+                    height: 16px;
+                    cursor: pointer;
+                }
+                
+                input[type="text"], input[type="number"] {
+                    background: #1a1d26;
+                    color: #00f3ff;
+                    border: 1px solid rgba(0, 243, 255, 0.5);
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    font-family: 'JetBrains Mono', monospace;
+                }
+                
+                /* Scrollbar */
+                ::-webkit-scrollbar { width: 8px; }
+                ::-webkit-scrollbar-track { background: #0f1115; }
+                ::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.3); border-radius: 4px; }
+                ::-webkit-scrollbar-thumb:hover { background: #00f3ff; }
             </style>
             """
             # Inject before </head>
@@ -369,3 +457,43 @@ class GraphManager:
             # Return HTML string for inline display
             raw_html = net.generate_html()
             return _inject_layout_css(raw_html)
+
+    def get_visualization_data(self, graph=None):
+        """
+        Returns a dictionary of nodes and edges optimized for frontend Vis.js rendering.
+        This replaces server-side HTML generation.
+        """
+        if graph is None:
+            graph = self.G
+            
+        nodes = []
+        edges = []
+        
+        # Whitelist attributes to reduce payload size
+        safe_attrs = {'label', 'title', 'type', 'id', 'color', 'shape', 'size', 'value'}
+        
+        for n, data in graph.nodes(data=True):
+            safe_data = {k: v for k, v in data.items() if k in safe_attrs}
+            
+            # Ensure essential fields
+            safe_data['id'] = n
+            if 'label' not in safe_data:
+                safe_data['label'] = str(n)
+            if 'title' not in safe_data:
+                safe_data['title'] = f"{n} ({safe_data.get('type', 'Unknown')})"
+                
+            # Color logic (duplicated from visualize for now, ideally shared)
+            ntype = safe_data.get('type', 'Unknown')
+            if 'color' not in safe_data:
+                if ntype == 'Hero': safe_data['color'] = '#ff9999'
+                elif ntype == 'Gene': safe_data['color'] = '#99ff99'
+                elif ntype == 'Power': safe_data['color'] = '#9999ff'
+                elif ntype == 'Seed': safe_data['color'] = '#ffff99'
+                elif ntype == 'SideEffect': safe_data['color'] = '#ffcc99'
+            
+            nodes.append(safe_data)
+            
+        for u, v in graph.edges():
+            edges.append({"from": u, "to": v})
+            
+        return {"nodes": nodes, "edges": edges}
