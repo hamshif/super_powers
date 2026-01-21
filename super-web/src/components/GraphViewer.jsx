@@ -17,13 +17,15 @@ const GraphViewer = ({ center, onClose }) => {
             { id: 'Flight', label: 'Flight', title: 'Power', group: 'Power', color: '#9999ff' },
             { id: 'Strength', label: 'Super Strength', title: 'Power', group: 'Power', color: '#9999ff' },
             { id: 'Krypton', label: 'Krypton', title: 'Planet', group: 'Seed', color: '#ffff99' },
-            { id: 'Gene-X', label: 'Gene-X', title: 'Gene', group: 'Gene', color: '#99ff99' }
+            { id: 'Gene-X', label: 'Gene-X', title: 'Gene', group: 'Gene', color: '#99ff99' },
+            { id: 'Gene-Y', label: 'Gene-Y', title: 'Gene', group: 'Gene', color: '#096e09ff' }
         ],
         edges: [
             { from: 'Superman', to: 'Flight' },
             { from: 'Superman', to: 'Strength' },
             { from: 'Superman', to: 'Krypton' },
-            { from: 'Strength', to: 'Gene-X' }
+            { from: 'Strength', to: 'Gene-X' },
+            { from: 'Flight', to: 'Gene-Y' }
         ]
     };
 

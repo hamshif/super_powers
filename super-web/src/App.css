@@ -603,3 +603,19 @@ button:disabled {
   width: 95%;
   max-width: 1600px;
 }
+
+/* === Flatten Indentation for Config Panel === */
+.vis-configuration-wrapper .vis-config-s0,
+.vis-configuration-wrapper .vis-config-s1,
+.vis-configuration-wrapper .vis-config-s2,
+.vis-configuration-wrapper .vis-config-s3,
+.vis-configuration-wrapper .vis-config-s4,
+.vis-configuration-wrapper .vis-config-label.vis-config-s0,
+.vis-configuration-wrapper .vis-config-label.vis-config-s1,
+.vis-configuration-wrapper .vis-config-label.vis-config-s2,
+.vis-configuration-wrapper .vis-config-label.vis-config-s3,
+.vis-configuration-wrapper .vis-config-label.vis-config-s4 {
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+  left: 0 !important;
+}
