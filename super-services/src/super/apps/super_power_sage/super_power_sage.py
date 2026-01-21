@@ -13,7 +13,7 @@ from typing import AsyncGenerator
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
@@ -282,25 +282,6 @@ async def _chat_stream(prompt: str, session_id: str) -> AsyncGenerator[str, None
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok")
-
-
-@app.get("/super_powers_sage/visualize_graph", response_class=HTMLResponse)
-async def visualize_graph(center: str = Query(None)):
-    """
-    Returns the generated HTML for the graph visualization.
-    Fetches the graph asynchronously from the GraphService Ray Actor.
-    """
-    try:
-        if state.graph_service is None:
-             return HTMLResponse("<h1>Graph Service Unavailable (Ray not connected)</h1>", status_code=503)
-
-        # Non-blocking remote call
-        html_content = await state.graph_service.get_html.remote(center)
-        return HTMLResponse(content=html_content, status_code=200)
-
-    except Exception as e:
-        logger.error(f"Graph viz failed: {e}", exc_info=True)
-        return HTMLResponse(f"<h3>Error generating graph: {e}</h3>", status_code=500)
 
 
 @app.get("/super_powers_sage/graph_data")
