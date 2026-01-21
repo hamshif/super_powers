@@ -72,7 +72,7 @@ class GraphService:
         
         # 1. Default View
         if not center:
-            sub_G = self.gm.subgraph_for_hero(self.default_hero, depth=1, max_neighbors=self.default_neighbors)
+            sub_G = self.gm.subgraph_for_hero(self.default_hero, depth=2, max_neighbors=self.default_neighbors)
             if sub_G is None or sub_G.number_of_nodes() == 0:
                  sub_G = self.gm.get_overview_graph() # Fallback
 
