@@ -114,11 +114,79 @@ const GraphViewer = ({ center, onClose }) => {
             });
         };
 
-        const observer = new MutationObserver(() => formatLabels());
+        // --- BUTTON INJECTOR (Insert Shrink Button into Vis Header) ---
+        const injectToggle = () => {
+            if (!configRef.current) return;
+            const header = configRef.current.querySelector('.vis-config-header');
+
+            if (header && !header.querySelector('.custom-shrink-btn')) {
+                // Adjust Header Layout
+                header.style.display = 'flex';
+                header.style.justifyContent = 'flex-start';
+                header.style.alignItems = 'center';
+                header.style.paddingRight = '10px';
+
+                // Create Container for Text (move text into span if needed, but flex handles text node)
+
+                // Create Shrink Button
+                const btn = document.createElement('div');
+                btn.className = 'custom-shrink-btn';
+                btn.title = "Shrink Panel";
+                btn.style.cursor = 'pointer';
+                btn.style.color = '#00f3ff';
+                btn.style.display = 'flex';
+                btn.style.alignItems = 'center';
+                btn.style.marginRight = '10px';
+
+                // SVG Icon (Arrows In)
+                btn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="4 14 10 14 10 20"></polyline>
+                        <polyline points="20 10 14 10 14 4"></polyline>
+                        <line x1="14" y1="10" x2="21" y2="3"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                `;
+
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    setIsConfigOpen(false);
+                };
+
+                header.prepend(btn);
+            }
+        };
+
+        // --- LAYOUT FLATTENER (Fix 2-Column Grid) ---
+        // Vis-Network often wraps "Physics" options in a container div.
+        // This forces Grid to put that whole container in Col 1.
+        // We use display: contents to "unbox" it.
+        const flattenLayout = () => {
+            if (!configRef.current) return;
+            // Select all direct children that might be wrappers
+            // (i.e., not the header, and not a leaf item)
+            const children = Array.from(configRef.current.children);
+            children.forEach(child => {
+                // Ignore Header and actual items
+                if (child.classList.contains('vis-config-header') || child.classList.contains('vis-config-item')) {
+                    return;
+                }
+                // If it's a generic div (likely a section wrapper), flatten it
+                child.style.display = 'contents';
+            });
+        };
+
+        const observer = new MutationObserver(() => {
+            formatLabels();
+            injectToggle();
+            flattenLayout();
+        });
         observer.observe(configRef.current, { childList: true, subtree: true });
 
         // Initial run
         formatLabels();
+        injectToggle();
+        flattenLayout();
 
         return () => {
             observer.disconnect();
@@ -146,7 +214,7 @@ const GraphViewer = ({ center, onClose }) => {
                     style={{
                         position: 'absolute',
                         bottom: '10px',
-                        right: '15px', // Moved to right
+                        left: '10px', // Moved to right
                         zIndex: 1000,
                         background: 'rgba(20, 22, 30, 0.85)', // Dark backing
                         border: '1px solid #00f3ff', // Visible border when closed
@@ -172,47 +240,19 @@ const GraphViewer = ({ center, onClose }) => {
 
             {/* --- CONFIG PANEL (EXPANDABLE) --- */}
             <div style={{
+                position: 'relative', // Context for absolute button
                 background: isConfigOpen ? 'rgba(20, 22, 30, 0.65)' : 'transparent',
                 borderTop: isConfigOpen ? '1px solid #00f3ff' : 'none',
                 flexShrink: 0,
                 display: 'flex',
                 flexDirection: 'column',
                 transition: 'all 0.3s ease',
-                // When content is hidden, this container should take 0 space
-                height: isConfigOpen ? 'auto' : '0px',
-                overflow: 'hidden'
+                // Primary Toggle: Height transition
+                height: isConfigOpen ? '35vh' : '0px',
+                overflow: isConfigOpen ? 'visible' : 'hidden'
             }}>
-                {/* OPEN STATE: VIS WRAPPER + OVERLAY BUTTON */}
-                {/* Always rendered to keep Vis Interface alive, visibility controlled by parent container style */}
-                <div style={{ position: 'relative', width: '100%', height: '35vh', display: isConfigOpen ? 'block' : 'none' }}>
-                    {/* Shrink Button (Overlay) */}
-                    <button
-                        onClick={() => setIsConfigOpen(false)}
-                        style={{
-                            position: 'absolute',
-                            top: '8px',
-                            right: '15px', // Place on right side of header row
-                            zIndex: 20,
-                            background: 'rgba(0,0,0,0.4)',
-                            border: '1px solid var(--cyber-cyan, #00f3ff)',
-                            borderRadius: '4px',
-                            color: '#00f3ff',
-                            cursor: 'pointer',
-                            padding: '4px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}
-                        title="Shrink Physics Panel"
-                    >
-                        {/* Shrink Icon (Arrows In) */}
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="4 14 10 14 10 20" />
-                            <polyline points="20 10 14 10 14 4" />
-                            <line x1="14" y1="10" x2="21" y2="3" />
-                            <line x1="3" y1="21" x2="10" y2="14" />
-                        </svg>
-                    </button>
+                {/* Always rendered to keep Vis Interface alive */}
+                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
 
                     {/* Vis Config Content */}
                     <div
@@ -220,13 +260,16 @@ const GraphViewer = ({ center, onClose }) => {
                         className="vis-configuration-wrapper"
                         style={{
                             display: 'grid',
+                            gridTemplateColumns: '1fr 1fr', // Force 2 columns
+                            columnGap: '15px',
                             height: '100%',
                             width: '100%',
                             boxSizing: 'border-box',
                             overflowY: 'auto',
+                            // Removed overflowX: hidden to prevent clipping
                             userSelect: 'none',
                             overscrollBehavior: 'contain',
-                            paddingTop: '10px' // Space for header
+                            paddingTop: '10px'
                         }}
                     />
                 </div>
