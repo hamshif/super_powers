@@ -181,14 +181,35 @@ def _etl_genomes(files: List[Path], hero_name: str, warehouse_root: Path, ontolo
 
     # Write Tables
     if genes_rows:
-        _append_to_partition(pd.DataFrame(genes_rows), warehouse_root / "hero_genes", ontology)
+        df_genes = pd.DataFrame(genes_rows)
+        # Enforce Schema
+        from super.core.warehouse_schema import load_schema, enforce_schema
+        schema = load_schema(str(warehouse_root), "hero_genes")
+        if schema:
+            df_genes = enforce_schema(df_genes, schema)
+        
+        _append_to_partition(df_genes, warehouse_root / "hero_genes", ontology)
         
     if reg_rows:
-        _append_to_partition(pd.DataFrame(reg_rows), warehouse_root / "hero_gene_regulation", ontology)
+        df_reg = pd.DataFrame(reg_rows)
+        # Enforce Schema
+        from super.core.warehouse_schema import load_schema, enforce_schema
+        schema = load_schema(str(warehouse_root), "hero_gene_regulation")
+        if schema:
+            df_reg = enforce_schema(df_reg, schema)
+
+        _append_to_partition(df_reg, warehouse_root / "hero_gene_regulation", ontology)
         
     if seed_rows:
         # hero_gene_seeds is NOT partitioned in flatten_heroes.py
-        _append_to_root(pd.DataFrame(seed_rows), warehouse_root / "hero_gene_seeds")
+        df_seeds = pd.DataFrame(seed_rows)
+        # Enforce Schema
+        from super.core.warehouse_schema import load_schema, enforce_schema
+        schema = load_schema(str(warehouse_root), "hero_gene_seeds")
+        if schema:
+            df_seeds = enforce_schema(df_seeds, schema)
+
+        _append_to_root(df_seeds, warehouse_root / "hero_gene_seeds")
 
 
 def _append_to_partition(df: pd.DataFrame, table_path: Path, ontology: str):

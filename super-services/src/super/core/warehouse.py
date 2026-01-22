@@ -35,6 +35,13 @@ def get_hero_genome_summary(spark, warehouse_root):
     g = hero_genes.alias("g")
     r = reg_summary.alias("r")
 
+    # p.show()
+    # print('sanity 1')
+    # g.show()
+    # print('sanity 2')
+    # r.show()
+    # print('sanity 3')
+
     full_report = p.join(g, "hero_name", "left") \
         .join(r, "hero_name", "left") \
         .select(

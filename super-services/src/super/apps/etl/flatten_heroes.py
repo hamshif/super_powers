@@ -100,6 +100,7 @@ def main():
             F.col("failure_mode")
         )
         t_hero_genes.write.mode("overwrite").partitionBy("ontology").parquet(os.path.join(warehouse_root, "hero_genes"))
+        _save_schema(t_hero_genes, warehouse_root, "hero_genes")
         
         # 5. hero_gene_regulation.parquet
         print("Building 'hero_gene_regulation' table...")
@@ -117,6 +118,7 @@ def main():
             F.col("reg.strength").alias("strength").cast("float")
         )
         t_hero_reg.write.mode("overwrite").partitionBy("ontology").parquet(os.path.join(warehouse_root, "hero_gene_regulation"))
+        _save_schema(t_hero_reg, warehouse_root, "hero_gene_regulation")
         
         # 6. hero_gene_seeds.parquet
         print("Building 'hero_gene_seeds' table...")
@@ -146,12 +148,26 @@ def main():
         
         t_hero_gene_seeds = g_primary.unionByName(g_secondary)
         t_hero_gene_seeds.write.mode("overwrite").parquet(os.path.join(warehouse_root, "hero_gene_seeds"))
+        _save_schema(t_hero_gene_seeds, warehouse_root, "hero_gene_seeds")
 
     else:
         print("No hero_genomes directory found. Skipping.")
 
     print("Hero ETL Complete.")
     spark.stop()
+
+def _save_schema(df, warehouse_root, table_name):
+    """Saves the Spark DataFrame schema to a JSON file."""
+    import json
+    schema_dir = os.path.join(warehouse_root, "_schemas")
+    os.makedirs(schema_dir, exist_ok=True)
+    schema_path = os.path.join(schema_dir, f"{table_name}.json")
+    
+    with open(schema_path, "w") as f:
+        # df.schema.json() returns a string, so we load it back to dict to pretty print?
+        # Or just write it out. df.schema.json() is a JSON string.
+        f.write(df.schema.json())
+    print(f"Saved schema for {table_name} to {schema_path}")
 
 if __name__ == "__main__":
     main()
