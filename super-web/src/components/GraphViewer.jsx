@@ -173,7 +173,11 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
             configRef.current.innerHTML = '';
         }
 
+        // Create active flag to prevent race conditions
+        let isActive = true;
+
         const loadGraph = async () => {
+            if (!isActive) return;
             setLoading(true);
             let graphData = { nodes: [], edges: [] };
 
@@ -193,8 +197,12 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
                     console.log(`Fetching Graph Data for: ${center} (query: '${queryCenter}')`);
                     const response = await fetch(`/super_powers_sage/graph_data?center=${encodeURIComponent(queryCenter || '')}`);
 
+                    if (!isActive) return; // RACE CONDITION CHECK: Abort if unmounted or changed
+
                     if (response.ok) {
                         const data = await response.json();
+                        if (!isActive) return;
+
                         if (data.nodes && data.nodes.length > 0) {
                             graphData = data;
 
@@ -229,7 +237,7 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
                     console.error("Graph fetch error", e);
                     if (center === 'default') graphData = DEFAULT_VIEW_DATA;
                 } finally {
-                    setLoading(false);
+                    if (isActive) setLoading(false);
                 }
             }
 
@@ -237,14 +245,16 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
             const usePhysics = true;
 
             // Create Network
-            networkRef.current = new Network(
-                containerRef.current,
-                graphData,
-                getOptions(usePhysics, configRef.current)
-            );
+            if (isActive) {
+                networkRef.current = new Network(
+                    containerRef.current,
+                    graphData,
+                    getOptions(usePhysics, configRef.current)
+                );
 
-            // Trigger Reactivity for Focal Points
-            setGraphVersion(v => v + 1);
+                // Trigger Reactivity for Focal Points
+                setGraphVersion(v => v + 1);
+            }
         };
 
         loadGraph();
@@ -372,6 +382,7 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
         // flattenLayout();
 
         return () => {
+            isActive = false; // CANCEL PENDING REQUESTS
             observer.disconnect();
             if (networkRef.current) networkRef.current.destroy();
         };

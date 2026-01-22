@@ -350,4 +350,12 @@ async def create_new_hero(
         # Cache Invalidation
         global _gm
         _gm = None
-        print("DEBUG: GraphManager cache cleared.")
+        print("DEBUG: Local GraphManager cache cleared.")
+        
+        # Trigger Remote Graph Reload
+        from super.apps.super_power_sage import state
+        if state.graph_service:
+            print("DEBUG: Triggering Remote GraphService reload...")
+            # Fire and forget (remote call)
+            state.graph_service.reload.remote()
+

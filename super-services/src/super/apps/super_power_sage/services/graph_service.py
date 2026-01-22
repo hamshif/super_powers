@@ -25,6 +25,17 @@ class GraphService:
             logger.error(f"GraphService failed to initialize GraphManager: {e}")
             raise e
 
+    def reload(self):
+        """Forces a reload of the graph from the warehouse."""
+        logger.info("GraphService: RELOAD triggered. Rebuilding graph...")
+        try:
+            self._initialize()
+            logger.info(f"GraphService: RELOAD Complete. Nodes: {self.gm.G.number_of_nodes()}")
+            return "Graph Reloaded"
+        except Exception as e:
+            logger.error(f"GraphService RELOAD Failed: {e}")
+            return f"Reload Failed: {e}"
+
     def get_html(self, center: Optional[str]) -> str:
         """
         Returns the HTML string for the requested graph center.
@@ -82,6 +93,7 @@ class GraphService:
              
         # 3. Contextual
         else:
+            logger.info(f"GraphService generating subgraph for '{center}' (Depth 2)")
             sub_G = self.gm.subgraph_for_hero(center, depth=2)
             
         if sub_G is None:
