@@ -100,4 +100,6 @@ class GraphService:
              return {"nodes": [], "edges": [], "error": "Graph not found"}
              
         # Return JSON Data
-        return self.gm.get_visualization_data(sub_G)
+        result = self.gm.get_visualization_data(sub_G)
+        result['center'] = center or self.default_hero
+        return result

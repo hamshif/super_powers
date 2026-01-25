@@ -13,6 +13,7 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
     const [isConfigOpen, setIsConfigOpen] = useState(true);
     const [panelHeight, setPanelHeight] = useState(180); // 50% lower starting point (was 350)
     const [graphVersion, setGraphVersion] = useState(0); // Track graph reloads for focal point replay
+    const [serverCenter, setServerCenter] = useState(null); // Captured from server response
 
     // --- RESIZE HANDLER ---
     const handleResizeMouseDown = (e) => {
@@ -107,7 +108,18 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
 
             const allNodes = networkRef.current.body.data.nodes.get();
             const updates = [];
-            const focalMap = new Map(focalPoints.map(fp => [fp.id, fp]));
+            // Merge explicit focal points with implicit server center
+            const combinedFocals = [...focalPoints];
+
+            if (serverCenter) {
+                // Deduplicate execution
+                const exists = combinedFocals.find(fp => fp.id === serverCenter);
+                if (!exists) {
+                    combinedFocals.push({ id: serverCenter, label: serverCenter });
+                }
+            }
+
+            const focalMap = new Map(combinedFocals.map(fp => [fp.id, fp]));
 
             allNodes.forEach(node => {
                 const fp = focalMap.get(node.id);
@@ -155,7 +167,7 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
             console.warn("Error updating focal points:", e);
         }
 
-    }, [focalPoints, graphVersion]);
+    }, [focalPoints, graphVersion, serverCenter]);
 
 
     useEffect(() => {
@@ -205,6 +217,27 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
 
                         if (data.nodes && data.nodes.length > 0) {
                             graphData = data;
+
+                            // IF we are in default view, and server provided a center, USE IT AS FOCAL POINT
+                            if (center === 'default' && data.center) {
+                                // Add implicit focal point if not already present
+                                // We use a temporary local-only focal list merge
+                                console.log(`Default View Center Identified: ${data.center}`);
+
+                                // Synthesize a focal point for the center
+                                const centerFocalPoint = {
+                                    id: data.center,
+                                    label: data.center,
+                                    type: 'Hero' // Assumption, or we can look it up in nodes
+                                };
+
+                                // We can't easily update the prop from here (anti-pattern), 
+                                // so we'll handle the highlighting locally in this scope or via a secondary effect?
+                                // Better: Update the *processing logic* in the effect above (101) to respect a local state.
+                                // BUT simpler: Just mutate the data nodes directly here before passing to Network?
+                                // OR: Set a local state 'defaultFocalPoint' and add it to the dependency array of the highlighter.
+                                setServerCenter(data.center);
+                            }
 
                             // CACHE: Save overview if fetched
                             if (center === 'overview') {
