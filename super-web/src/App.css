@@ -623,3 +623,33 @@ button:disabled {
   margin-left: 0 !important;
   left: 0 !important;
 }
+/* Floating Dots Loading Animation */
+@keyframes blink {
+  0% { opacity: 0.2; }
+  20% { opacity: 1; }
+  100% { opacity: 0.2; }
+}
+
+.loading-dots {
+  display: inline-flex;
+  padding-left: 10px;
+}
+
+.loading-dots span {
+  animation-name: blink;
+  animation-duration: 1.4s;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  font-size: 1.5rem;
+  color: #00f3ff;
+  margin: 0 2px;
+  line-height: 1rem;
+}
+
+.loading-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loading-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}

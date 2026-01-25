@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Network } from 'vis-network';
 import 'vis-network/styles/vis-network.css';
 
-const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
+const GraphViewer = ({ center, onClose, focalPoints = [], onLoading }) => {
     const containerRef = useRef(null);
     const configRef = useRef(null);
     const networkRef = useRef(null);
@@ -190,8 +190,15 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
 
         const loadGraph = async () => {
             if (!isActive) return;
+            if (!isActive) return;
             setLoading(true);
+            if (onLoading) onLoading(true);
             let graphData = { nodes: [], edges: [] };
+
+            // UX DELAY: 800ms to ensure loading dots are visible and prevent flickering
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            if (!isActive) return;
 
             // 1. Check Cache for Overview
             if (center === 'overview' && overviewCache.current) {
@@ -270,7 +277,10 @@ const GraphViewer = ({ center, onClose, focalPoints = [] }) => {
                     console.error("Graph fetch error", e);
                     if (center === 'default') graphData = DEFAULT_VIEW_DATA;
                 } finally {
-                    if (isActive) setLoading(false);
+                    if (isActive) {
+                        setLoading(false);
+                        if (onLoading) onLoading(false);
+                    }
                 }
             }
 

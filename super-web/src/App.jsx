@@ -14,6 +14,7 @@ function App() {
   const [graphHistory, setGraphHistory] = useState([])
   const [activeGraphCtx, setActiveGraphCtx] = useState("default") // Default to "Default View"
   const [focalPoints, setFocalPoints] = useState([]) // Graph Focal Points (Metadata)
+  const [graphLoading, setGraphLoading] = useState(false); // Track Graph Loading State
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -244,7 +245,14 @@ function App() {
       {showGraph && (
         <div className="graph-panel">
           <div className="graph-header">
-            <h2>Knowledge Graph</h2>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <h2>Knowledge Graph</h2>
+              {graphLoading && (
+                <div className="loading-dots">
+                  <span>.</span><span>.</span><span>.</span>
+                </div>
+              )}
+            </div>
             <div className="graph-controls">
               <select
                 value={activeGraphCtx || "overview"}
@@ -262,7 +270,7 @@ function App() {
           </div>
           {/* Replaced iframe with client-side GraphViewer (Offline Capable) */}
           <div className="graph-frame" style={{ flex: 1, overflow: 'auto' }}>
-            <GraphViewer center={activeGraphCtx} focalPoints={focalPoints} />
+            <GraphViewer center={activeGraphCtx} focalPoints={focalPoints} onLoading={setGraphLoading} />
           </div>
         </div>
       )}
