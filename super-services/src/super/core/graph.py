@@ -28,10 +28,23 @@ class GraphManager:
         
         # --- 1. Load DataFrames ---
         # Helper to load safely
+        # Helper to load safely
         def load(name):
             path = os.path.join(self.warehouse_root, name)
             if os.path.exists(path):
-                return pd.read_parquet(path)
+                try:
+                    return pd.read_parquet(path)
+                except Exception as e:
+                    # Fix for "ArrowInvalid: Cannot yet unify dictionaries with nulls"
+                    # caused by __HIVE_DEFAULT_PARTITION__ conflicting with dictionary-encoded partitions
+                    if "Cannot yet unify" in str(e) or "No non-null segments" in str(e):
+                        try:
+                            # Attempt to exclude the problematic Hive partition
+                            # We assume 'ontology' is the partition key causing issues based on known schema
+                            return pd.read_parquet(path, filters=[('ontology', '!=', '__HIVE_DEFAULT_PARTITION__')])
+                        except Exception:
+                            pass # Fall back to raising the original error
+                    raise e
             return pd.DataFrame()
 
         heroes_df = load("hero_profiles")

@@ -71,3 +71,5 @@ tmp/
 stage/
 data.zip
 
+tmp-scripts/
+test-results/

@@ -8,6 +8,7 @@ Adhere to these guidelines for all tasks. Compile these into long term lating in
 - **Strict Loading**: When using configuration helpers (e.g., `get_project_conf`, `get_app_conf`), **NEVER** supply fallbacks or try catch wrappers! using `project_root`, `stage_root` to retain a strict single source of truth.
 - **Explicit Failure**: If a required configuration root or file is absent, the application MUST crash or raise an explicit error immediately. Silent defaults hide deployment issues.
 - **Environment Compliance**: Minimize & Respect the use of environment variables `.env` and environment variables as the source of truth for credentials and paths.
+- **Temporary Scripts**: If creating scripts for debugging, testing, or temporary utility, place them in a `tmp-scripts/` directory at the project root.
 
 ## 3. Planning
 - **Questions**: When user asks questions answer them and stop to verify alignment before proceeding.
@@ -31,3 +32,8 @@ Adhere to these guidelines for all tasks. Compile these into long term lating in
 - **Local First**: You must run and verify the application locally (python/node) and produce success logs *before* creating or building any Docker images.
     - **Workflow**: Local Code -> Local Run (Verify Logs) -> Docker Build.
     - **Forbidden**: Do not propose building Docker images until local verification is complete.
+
+## 7. Temporary Scripting
+- **Location**: All temporary, debugging, or reproduction scripts must be placed in `tmp-scripts/`.
+- **Git Ignore**: Verify `tmp-scripts/` is in `.gitignore`.
+- **Cleanup**: Delete scripts when no longer needed or promote them to proper tests.

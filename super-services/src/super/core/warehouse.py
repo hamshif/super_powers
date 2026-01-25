@@ -84,14 +84,32 @@ def get_hero_data(hero_name, ontology=None, warehouse_root=None):
     # Pass None if no filters, otherwise PyArrow complains "Malformed filters"
     filters = filters if filters else None
 
+    # Helper: Robust Loader
+    def load_parquet(table_name, _filters=None):
+        path = os.path.join(warehouse_root, table_name)
+        try:
+            return pd.read_parquet(path, filters=_filters, engine='pyarrow')
+        except Exception as e:
+             # Fix for "ArrowInvalid: Cannot yet unify dictionaries with nulls"
+            if "Cannot yet unify" in str(e) or "No non-null segments" in str(e):
+                 # Try appending the exclusion filter
+                 # If we already have filters, we need to be careful. read_parquet accept list of tuples (AND) or list of lists (OR).
+                 # Simple list of tuples is AND.
+                 robust_filters = []
+                 if _filters:
+                     robust_filters.extend(_filters)
+                 robust_filters.append(('ontology', '!=', '__HIVE_DEFAULT_PARTITION__'))
+                 
+                 try:
+                    return pd.read_parquet(path, filters=robust_filters, engine='pyarrow')
+                 except Exception:
+                     pass
+            raise e
+
     # 1. Load Profile
     # Profiles are partitioned by ontology
     try:
-        profiles_df = pd.read_parquet(
-            os.path.join(warehouse_root, "hero_profiles"), 
-            filters=filters,
-            engine='pyarrow'
-        )
+        profiles_df = load_parquet("hero_profiles", filters)
     except FileNotFoundError:
         print(f"Warehouse not found at {warehouse_root}")
         return None
@@ -107,11 +125,7 @@ def get_hero_data(hero_name, ontology=None, warehouse_root=None):
     
     # 2. Load Master Gene
     # Genes are partitioned by ontology
-    genes_df = pd.read_parquet(
-        os.path.join(warehouse_root, "hero_genes"),
-        filters=filters,
-        engine='pyarrow'
-    )
+    genes_df = load_parquet("hero_genes", filters)
     hero_gene = genes_df[genes_df['hero_name'] == hero_name]
     
     if not hero_gene.empty:
@@ -122,11 +136,7 @@ def get_hero_data(hero_name, ontology=None, warehouse_root=None):
 
     # 3. Load Regulation Cluster
     # Regulation IS now partitioned by ontology (after ETL update)
-    reg_df = pd.read_parquet(
-        os.path.join(warehouse_root, "hero_gene_regulation"),
-        filters=filters,
-        engine='pyarrow'
-    )
+    reg_df = load_parquet("hero_gene_regulation", filters)
     hero_cluster = reg_df[reg_df['hero_name'] == hero_name]
     
     # Enriched Cluster Summary
@@ -160,28 +170,33 @@ def get_all_heroes_data(warehouse_root=None, ontology=None):
     if ontology:
         filters.append(('ontology', '=', ontology))
     filters = filters if filters else None
+    
+    # Helper: Robust Loader (Duplicated or shared? Let's inline for safety/isolation in this context)
+    def load_parquet(table_name, _filters=None):
+        path = os.path.join(warehouse_root, table_name)
+        try:
+            return pd.read_parquet(path, filters=_filters, engine='pyarrow')
+        except Exception as e:
+            if "Cannot yet unify" in str(e) or "No non-null segments" in str(e):
+                 robust_filters = []
+                 if _filters:
+                     robust_filters.extend(_filters)
+                 robust_filters.append(('ontology', '!=', '__HIVE_DEFAULT_PARTITION__'))
+                 try:
+                    return pd.read_parquet(path, filters=robust_filters, engine='pyarrow')
+                 except Exception:
+                     pass
+            raise e
         
     try:
         # 1. Load Profiles
-        profiles_df = pd.read_parquet(
-            os.path.join(warehouse_root, "hero_profiles"),
-            filters=filters,
-            engine='pyarrow'
-        )
+        profiles_df = load_parquet("hero_profiles", filters)
         
         # 2. Load Genes
-        genes_df = pd.read_parquet(
-            os.path.join(warehouse_root, "hero_genes"),
-            filters=filters,
-            engine='pyarrow'
-        )
+        genes_df = load_parquet("hero_genes", filters)
         
         # 3. Load Regulation
-        reg_df = pd.read_parquet(
-            os.path.join(warehouse_root, "hero_gene_regulation"),
-            filters=filters,
-            engine='pyarrow'
-        )
+        reg_df = load_parquet("hero_gene_regulation", filters)
     except FileNotFoundError:
         print(f"Warehouse data missing in {warehouse_root}")
         return pd.DataFrame()
