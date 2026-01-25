@@ -33,8 +33,21 @@ if [ ! -f "${ZIP_PATH}" ]; then
     exit 1
 fi
 
-echo "Injecting Data: data.zip"
-cp "${ZIP_PATH}" "${STAGE_DIR}/data.zip"
+echo "Injecting Data: Unzipping to stage..."
+# Unzip directly into the stage directory
+# -q: quiet
+# -o: overwrite
+# -d: destination
+unzip -q -o "${ZIP_PATH}" -d "${STAGE_DIR}"
+
+# Remove the zip file from stage if it was copied or if unzip left artifacts? 
+# Wait, unzip -d puts the CONTENTS into STAGE_DIR.
+# If data.zip contains a 'data/' folder, then STAGE_DIR/data will exist.
+# We DO NOT want the .zip file itself in the docker build context if we are providing the unzipped version.
+# Since we unzipped FROM source TO stage, the zip isn't in stage unless we put it there.
+# Previous code did: cp "${ZIP_PATH}" "${STAGE_DIR}/data.zip"
+# We are REPLACING that. So we just unzip.
+
 
 # 4. Copy Dockerfile
 # We move the Dockerfile to the root of the context

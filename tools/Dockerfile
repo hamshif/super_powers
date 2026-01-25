@@ -61,16 +61,34 @@ COPY . /app
 # (Note: This replaces any 'chat.html' we stuck there)
 COPY --from=frontend-builder /app/frontend/dist /app/super-services/src/super/apps/super_power_sage/static
 
-# 5.2. Unpack Data (Inject into Default Stage Root)
+# 5.2. Inject Data (Pre-unzipped in stage)
+# process: build_docker.sh unzziped 'data.zip' into 'stage/docker_context/data'
+# So we just copy that directory to the expected location.
 # Config defaults stage_root to $HOME/stage/$PROJECT_NAME (i.e., /root/stage/app)
-# zip_data.py wraps everything in a 'data' folder, so we must unpack and move it up.
 RUN mkdir -p /root/stage/app
-COPY data.zip /root/stage/app/data.zip
-RUN unzip /root/stage/app/data.zip -d /root/stage/app && \
-    rm /root/stage/app/data.zip && \
-    # Move contents of 'data' (warehouse, hero_profiles, etc.) to stage root
-    mv /root/stage/app/data/* /root/stage/app/ && \
-    rmdir /root/stage/app/data
+COPY data /root/stage/app/
+# Note: if data.zip contained 'data/', then verify path.
+# Assuming build_docker.sh unzipping results in 'stage/docker_context/data/' containing the parquet files.
+# If so, COPY data /root/stage/app/ puts them in /root/stage/app/ (files) or /root/stage/app/data/?
+# COPY src dest -> If dest ends with /, it's a directory.
+# If src is a directory, it copies CONTENTS.
+# Wait, Docker COPY behavior: "COPY data /dest/" copies contents of data into /dest/.
+# If we want /root/stage/app to CONTAIN 'hero_profiles' etc directly?
+# Check previous logic:
+# unzip ... -d /root/stage/app
+# mv /root/stage/app/data/* /root/stage/app/
+# So previously, data.zip had a 'data' folder at root.
+# So unzipping to /root/stage/app created /root/stage/app/data.
+# Then we moved contents UP.
+# So we want the contents of 'data' to be in '/root/stage/app'.
+#
+# If we have 'stage/docker_context/data' on host.
+# COPY data /root/stage/app/ ---> copies 'stage/docker_context/data' CONTENTS into '/root/stage/app/'?
+# OR does it copy the directory itself?
+# "COPY src dest": If src is dir, "metadata of the directory itself is not copied (the directory name), just its contents".
+# So COPY data /root/stage/app/ will put hero_profiles inside /root/stage/app/.
+# This matches the desired "mv ... *" state.
+
 
 # 6. Final Install / Verification
 RUN bash package_py.sh
