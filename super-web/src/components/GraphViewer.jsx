@@ -195,16 +195,9 @@ const GraphViewer = ({ center, onClose, focalPoints = [], onLoading }) => {
             if (onLoading) onLoading(true);
             let graphData = { nodes: [], edges: [] };
 
-            // UX DELAY: 800ms to ensure loading dots are visible and prevent flickering
-            await new Promise(resolve => setTimeout(resolve, 800));
-
-            if (!isActive) return;
-
-            // 1. Check Cache for Overview
             if (center === 'overview' && overviewCache.current) {
                 console.log("Using Cached Global Overview");
                 graphData = overviewCache.current;
-                setLoading(false);
             } else {
                 // 2. Fetch Data
                 try {
@@ -277,10 +270,7 @@ const GraphViewer = ({ center, onClose, focalPoints = [], onLoading }) => {
                     console.error("Graph fetch error", e);
                     if (center === 'default') graphData = DEFAULT_VIEW_DATA;
                 } finally {
-                    if (isActive) {
-                        setLoading(false);
-                        if (onLoading) onLoading(false);
-                    }
+                    // Loading state is now cleared by the Network 'afterDrawing' event
                 }
             }
 
@@ -294,6 +284,15 @@ const GraphViewer = ({ center, onClose, focalPoints = [], onLoading }) => {
                     graphData,
                     getOptions(usePhysics, configRef.current)
                 );
+
+                // WAIT FOR RENDER: Only clear loading when graph is actually drawn
+                networkRef.current.once('afterDrawing', () => {
+                    if (isActive) {
+                        console.log("Graph Rendered. Clearing Loading State.");
+                        setLoading(false);
+                        if (onLoading) onLoading(false);
+                    }
+                });
 
                 // Trigger Reactivity for Focal Points
                 setGraphVersion(v => v + 1);
